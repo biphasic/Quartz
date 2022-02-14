@@ -43,7 +43,7 @@ class IF(sl.StatefulLayer):
             self.v_mem = state["v_mem"]
             self.i_syn[spikes.bool()] = 0
 
-            if self.rectification and step == self.t_max*(self.index+2) - (self.index+1) - 1:
+            if self.rectification and step == self.t_max*2 - 1:
                 batch, *trailing_dim = torch.where(output_spikes.sum(1) == 0)
                 if batch.numel() == 0: break
                 output_spikes[batch, step, trailing_dim] = 1.
@@ -54,3 +54,23 @@ class IF(sl.StatefulLayer):
             if self.record_v_mem: self.v_mem_recorded[:, step] = self.v_mem
         
         return output_spikes
+
+
+class IFSqueeze(IF, sl.SqueezeMixin):
+    """
+    Same as parent class, only takes in squeezed 4D input (Batch*Time, Channel, Height, Width)
+    instead of 5D input (Batch, Time, Channel, Height, Width) in order to be compatible with
+    layers that can only take a 4D input, such as convolutional and pooling layers.
+    """
+
+    def __init__(
+        self,
+        batch_size=None,
+        num_timesteps=None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.squeeze_init(batch_size, num_timesteps)
+
+    def forward(self, input_data: torch.Tensor) -> torch.Tensor:
+        return self.squeeze_forward(input_data, super().forward)
