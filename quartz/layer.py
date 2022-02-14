@@ -22,8 +22,6 @@ class IF(sl.StatefulLayer):
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         batch_size, n_time_steps, *trailing_dim = data.shape
 
-        self.v_mem_recorded = []
-
         if not self.is_state_initialised() or not self.state_has_shape(
             (batch_size, *trailing_dim)
         ):
@@ -33,23 +31,26 @@ class IF(sl.StatefulLayer):
         counter_weight[:, self.t_max*(self.index+1)] = 1 - data.sum()
         data = data + counter_weight
 
-        output_spikes = []
+        output_spikes = torch.zeros_like(data)
+        if self.record_v_mem: self.v_mem_recorded = torch.zeros_like(data)
+
         for step in range(n_time_steps):
             self.i_syn = self.i_syn + data[:, step]
             self.v_mem = self.v_mem + self.i_syn
 
             spikes, state = self.act_fn(dict(self.named_buffers()))
-            output_spikes.append(spikes)
+            output_spikes[:, step] = spikes
             self.v_mem = state["v_mem"]
             self.i_syn[spikes.bool()] = 0
 
-            if self.rectification: 
-            if self.record_v_mem: self.v_mem_recorded.append(self.v_mem)
-        
-        if self.record_v_mem: self.v_mem_recorded = torch.stack(self.v_mem_recorded, 1)
+            if self.rectification and step == self.t_max*(self.index+2) - (self.index+1) - 1:
+                batch, *trailing_dim = torch.where(output_spikes.sum(1) == 0)
+                if batch.numel() == 0: break
+                output_spikes[batch, step, trailing_dim] = 1.
+                self.v_mem[batch, trailing_dim] = 0
+                self.i_syn[batch, trailing_dim] = 0
+                break
 
-        spikes = torch.stack(output_spikes, 1)
-        if self.rectification and (spikes[:, :self.t_max*(self.index+2)].sum(1) == 0).any():
-            spikes[:, :self.t_max*(self.index+2)].sum(1) == 0 pass
+            if self.record_v_mem: self.v_mem_recorded[:, step] = self.v_mem
         
-        return spikes
+        return output_spikes
