@@ -8,15 +8,17 @@ class IF(sl.StatefulLayer):
     def __init__(
         self,
         t_max: int,
-        index: int,
         rectification: bool = True,
         record_v_mem: bool = False,
     ):
         super().__init__(state_names=["v_mem", "i_syn"])
         self.t_max = t_max
-        self.index = index
         self.rectification = rectification
-        self.act_fn = sina.ActivationFunction(spike_threshold=t_max, spike_fn=sina.SingleSpike, reset_fn=sina.MembraneReset())
+        self.act_fn = sina.ActivationFunction(
+            spike_threshold=t_max,
+            spike_fn=sina.SingleSpike,
+            reset_fn=sina.MembraneReset(),
+        )
         self.record_v_mem = record_v_mem
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
@@ -27,12 +29,12 @@ class IF(sl.StatefulLayer):
         ):
             self.init_state_with_shape((batch_size, *trailing_dim))
 
-        counter_weight = torch.zeros_like(data)
-        counter_weight[:, self.t_max*(self.index+1)] = 1 - data.sum()
-        data = data + counter_weight
+        # counter weight and readout
+        data[:, self.t_max] = 1 - data.sum(1)
 
         output_spikes = torch.zeros_like(data)
-        if self.record_v_mem: self.v_mem_recorded = torch.zeros_like(data)
+        if self.record_v_mem:
+            self.v_mem_recorded = torch.zeros_like(data)
 
         for step in range(n_time_steps):
             self.i_syn = self.i_syn + data[:, step]
@@ -43,16 +45,21 @@ class IF(sl.StatefulLayer):
             self.v_mem = state["v_mem"]
             self.i_syn[spikes.bool()] = 0
 
-            if self.rectification and step == self.t_max*2 - 1:
-                batch, *trailing_dim = torch.where(output_spikes.sum(1) == 0)
-                if batch.numel() == 0: break
-                output_spikes[batch, step, trailing_dim] = 1.
-                self.v_mem[batch, trailing_dim] = 0
-                self.i_syn[batch, trailing_dim] = 0
+            # if relu is activated, make sure neurons that haven't spiked until
+            # now do so at t_max * 2
+            if self.rectification and step == self.t_max * 2 - 1:
+                non_spiking_indices = list(torch.where(output_spikes.sum(1) == 0))
+                if len(non_spiking_indices) == 0:
+                    break
+                self.v_mem[non_spiking_indices] = 0
+                self.i_syn[non_spiking_indices] = 0
+                non_spiking_indices.insert(1, step)
+                output_spikes[non_spiking_indices] = 1.0
                 break
 
-            if self.record_v_mem: self.v_mem_recorded[:, step] = self.v_mem
-        
+            if self.record_v_mem:
+                self.v_mem_recorded[:, step] = self.v_mem
+
         return output_spikes
 
 
