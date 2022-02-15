@@ -19,7 +19,7 @@ def decode_outputs(output, t_max):
     values = torch.zeros(batch_size, *trailing_dim)
     indices = [torch.where(output > 0)]
     for b, t, c, h, w in indices:
-        values[b, c, h, w] = (n_time_steps - 1 - t_max - t) / t_max
+        values[b, c, h, w] = (t_max - t) / t_max
     return values
 
 

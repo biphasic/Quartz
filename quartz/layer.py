@@ -50,6 +50,7 @@ class IF(sl.StatefulLayer):
             if self.rectification and step == self.t_max * 2 - 1:
                 non_spiking_indices = list(torch.where(output_spikes.sum(1) == 0))
                 if len(non_spiking_indices) == 0:
+                    # every neuron spiked
                     break
                 self.v_mem[non_spiking_indices] = 0
                 self.i_syn[non_spiking_indices] = 0
@@ -60,7 +61,12 @@ class IF(sl.StatefulLayer):
             if self.record_v_mem:
                 self.v_mem_recorded[:, step] = self.v_mem
 
-        return output_spikes
+        return torch.hstack(
+            (
+                output_spikes[:, self.t_max - 1 :],
+                torch.zeros_like(data)[:, : self.t_max - 1],
+            )
+        )
 
 
 class IFSqueeze(IF, sl.SqueezeMixin):
