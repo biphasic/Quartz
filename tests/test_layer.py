@@ -6,7 +6,7 @@ import pytest
 
 @pytest.mark.parametrize("input_dims", [(1, 1, 1, 1), (1, 1, 10, 10)])
 def test_if_layer(input_dims):
-    t_max = 2 ** 5
+    t_max = 2 ** 5 + 1
     static_data = torch.rand(input_dims)
     q_input = quartz.quantize_inputs(static_data, t_max)
     input_data = quartz.encode_inputs(static_data, t_max)

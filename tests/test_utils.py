@@ -16,6 +16,6 @@ def test_decoding_output():
     values = torch.rand(2, 3, 1, 1)
     q_values = quartz.quantize_inputs(values, t_max)
     input = quartz.encode_inputs(values, t_max=t_max)
-    
+
     output = quartz.decode_outputs(input, t_max=t_max)
     assert (output == q_values).all()

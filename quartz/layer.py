@@ -30,7 +30,7 @@ class IF(sl.StatefulLayer):
             self.init_state_with_shape((batch_size, *trailing_dim))
 
         # counter weight and readout
-        data[:, self.t_max] = 1 - data.sum(1)
+        data[:, self.t_max - 1] = 1 - data.sum(1)
 
         output_spikes = torch.zeros_like(data)
         if self.record_v_mem:
@@ -47,7 +47,7 @@ class IF(sl.StatefulLayer):
 
             # if relu is activated, make sure neurons that haven't spiked until
             # now do so at t_max * 2
-            if self.rectification and step == self.t_max * 2 - 1:
+            if self.rectification and step == (self.t_max - 1) * 2:
                 non_spiking_indices = list(torch.where(output_spikes.sum(1) == 0))
                 if len(non_spiking_indices) == 0:
                     # every neuron spiked
@@ -61,6 +61,7 @@ class IF(sl.StatefulLayer):
             if self.record_v_mem:
                 self.v_mem_recorded[:, step] = self.v_mem
 
+        # return output_spikes
         return torch.hstack(
             (
                 output_spikes[:, self.t_max - 1 :],
