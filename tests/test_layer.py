@@ -37,15 +37,17 @@ def test_if_rectification(input_dims):
 
 
 def test_decoding_conv_output():
-    t_max = 2 ** 5
-    values = torch.rand(2, 3, 2, 2)
-    q_values = quartz.quantize_inputs(values, t_max)
+    t_max = 2 ** 8
+    values = (torch.rand(2, 3, 2, 2) - 0) / 3
+    q_values = quartz.quantize_inputs(values, t_max) 
 
     conv_layer = nn.Conv2d(3, 3, 2, bias=False)
     ann_output = conv_layer(q_values)
+    q_ann_output = quartz.quantize_inputs(ann_output, t_max=t_max)
 
-    temp_ann_output = quartz.encode_inputs(ann_output, t_max=t_max)
-    quartz_output = quartz.IF(t_max=t_max, rectification=False)(temp_ann_output)
+    temp_q_values = quartz.encode_inputs(q_values, t_max=t_max)
+    temp_conv = conv_layer(temp_q_values.flatten(0, 1)).unflatten(0, (2,-1))
+    quartz_output = quartz.IF(t_max=t_max, rectification=False)(temp_conv)
+    q_quartz_output = quartz.decode_outputs(quartz_output, t_max=t_max)
 
-    dec_quartz_output = quartz.decode_outputs(quartz_output, t_max=t_max)
-    assert (quartz.quantize_inputs(ann_output, t_max=t_max) == dec_quartz_output).all()
+    torch.testing.assert_close(q_ann_output, q_quartz_output, atol=0.05, rtol=0.1)
