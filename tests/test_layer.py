@@ -38,15 +38,16 @@ def test_if_rectification(input_dims):
 
 def test_decoding_conv_output():
     t_max = 2 ** 8
-    values = (torch.rand(2, 3, 2, 2) - 0) / 3
+    batch_size = 1
+    values = (torch.rand(batch_size, 2, 5, 5) - 0) / 3
     q_values = quartz.quantize_inputs(values, t_max) 
 
-    conv_layer = nn.Conv2d(3, 3, 2, bias=False)
+    conv_layer = nn.Conv2d(2, 4, 3, bias=False)
     ann_output = conv_layer(q_values)
     q_ann_output = quartz.quantize_inputs(ann_output, t_max=t_max)
 
     temp_q_values = quartz.encode_inputs(q_values, t_max=t_max)
-    temp_conv = conv_layer(temp_q_values.flatten(0, 1)).unflatten(0, (2,-1))
+    temp_conv = conv_layer(temp_q_values.flatten(0, 1)).unflatten(0, (batch_size, -1))
     quartz_output = quartz.IF(t_max=t_max, rectification=False)(temp_conv)
     q_quartz_output = quartz.decode_outputs(quartz_output, t_max=t_max)
 

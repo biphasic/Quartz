@@ -14,11 +14,10 @@ class IF(sl.StatefulLayer):
         super().__init__(state_names=["v_mem", "i_syn"])
         self.t_max = t_max
         self.rectification = rectification
-        self.act_fn = sina.ActivationFunction(
-            spike_threshold=t_max,
-            spike_fn=sina.SingleSpike,
-            reset_fn=sina.MembraneReset(),
-        )
+        self.spike_threshold=t_max
+        self.spike_fn=sina.SingleSpike
+        self.reset_fn=sina.MembraneReset()
+        self.surrogate_grad_fn = sina.Heaviside()
         self.record_v_mem = record_v_mem
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
@@ -40,7 +39,11 @@ class IF(sl.StatefulLayer):
             self.i_syn = self.i_syn + data[:, step]
             self.v_mem = self.v_mem + self.i_syn
 
-            spikes, state = self.act_fn(dict(self.named_buffers()))
+            state = dict(self.named_buffers())
+            input_tensors = [state[name] for name in self.spike_fn.required_states]
+            spikes = self.spike_fn.apply(*input_tensors, self.spike_threshold, self.surrogate_grad_fn)
+            state = self.reset_fn(spikes, state, self.spike_threshold)
+        
             output_spikes[:, step] = spikes
             self.v_mem = state["v_mem"]
             self.i_syn[spikes.bool()] = 0

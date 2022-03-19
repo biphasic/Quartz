@@ -4,21 +4,18 @@ import torch.nn as nn
 
 
 def test_conversion():
-    ann = nn.Sequential(
-        nn.Conv2d(2, 4, 3, bias=False),
-        nn.ReLU(),
+    ann = nn.Conv2d(2, 4, 3, bias=False)
+    # ann = nn.Sequential(
+    #     nn.Conv2d(2, 4, 3, bias=False),
+    #     nn.ReLU(),
         # nn.Conv2d(4, 8, 3, bias=False),
         # nn.ReLU(),
         # nn.Flatten(),
         # nn.Linear(8, 10, bias=False),
-    )
-
-    with torch.no_grad():
-        for param in ann.parameters():
-            param /= 3
+    # )
 
     t_max = 2**8
-    batch_size = 10
+    batch_size = 2
 
     def hook(module, input, output) -> torch.Tensor:
         return quartz.quantize_inputs(output, t_max)
@@ -26,16 +23,17 @@ def test_conversion():
     # for module in ann.modules():
     #     module.register_forward_hook(hook)
 
-    snn = quartz.from_model(ann, t_max=t_max, batch_size=batch_size)
+    values = torch.rand((batch_size, 2, 5, 5)) / 3
+    q_values = quartz.quantize_inputs(values, t_max)
 
-    static_input = torch.rand((batch_size, 2, 5, 5)) / 3
-    q_static_input = quartz.quantize_inputs(static_input, t_max)
-    temp_input = quartz.encode_inputs(static_input, t_max=t_max)
+    ann_output = ann(q_values)
+    q_ann_output = quartz.quantize_inputs(ann_output, t_max)
 
-    static_output = ann(q_static_input)
-    temp_output = snn(temp_input.flatten(0, 1)).unflatten(0, (batch_size, -1))
+    snn = quartz.IF(t_max=t_max, rectification=False) # quartz.from_model(ann, t_max=t_max, batch_size=batch_size)
+    temp_q_values = quartz.encode_inputs(q_values, t_max=t_max)
+    ann_output = ann(temp_q_values.flatten(0, 1)).unflatten(0, (batch_size, -1))
+    temp_output = snn(ann_output)
     snn_output = quartz.decode_outputs(temp_output, t_max=t_max)
 
-    assert static_output.shape == snn_output.shape
-    torch.testing.assert_close(static_output, snn_output, atol=0.05, rtol=0.2)
-    # assert torch.allclose(snn_output, static_output)
+    assert q_ann_output.shape == snn_output.shape
+    torch.testing.assert_close(q_ann_output, snn_output, atol=0.05, rtol=0.2)
