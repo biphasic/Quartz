@@ -6,7 +6,7 @@ import pytest
 
 @pytest.mark.parametrize("input_dims", [(1, 1, 1, 1), (1, 1, 10, 10), (2, 3, 5, 5)])
 def test_if_layer(input_dims):
-    t_max = 2 ** 5 + 1
+    t_max = 2 ** 5
     static_data = torch.rand(input_dims)
     q_input = quartz.quantize_inputs(static_data, t_max)
     input_data = quartz.encode_inputs(static_data, t_max)
@@ -16,7 +16,7 @@ def test_if_layer(input_dims):
     output_quartz_raw = quartz_layer(input_data)
     output_quartz = quartz.decode_outputs(output_quartz_raw, t_max)
 
-    assert torch.allclose(q_input, output_quartz)
+    torch.testing.assert_close(q_input, output_quartz)
 
 
 @pytest.mark.parametrize("input_dims", [(1, 1, 1, 1), (4, 3, 2, 2)])
@@ -52,3 +52,28 @@ def test_decoding_conv_output():
     q_quartz_output = quartz.decode_outputs(quartz_output, t_max=t_max)
 
     torch.testing.assert_close(q_ann_output, q_quartz_output, atol=0.05, rtol=0.1)
+
+
+def test_decoding_linear_output():
+    t_max = 2 ** 8
+    batch_size = 1
+    values = (torch.rand(batch_size, 2000) - 0) / 3
+    q_values = quartz.quantize_inputs(values, t_max) 
+
+    linear_layer = nn.Linear(2000, 2000, bias=False)
+    ann_output = linear_layer(q_values)
+    q_ann_output = quartz.quantize_inputs(ann_output, t_max=t_max)
+
+    temp_q_values = quartz.encode_inputs(q_values, t_max=t_max)
+    temp_linear = linear_layer(temp_q_values.flatten(0, 1)).unflatten(0, (batch_size, -1))
+    quartz_output = quartz.IF(t_max=t_max, rectification=False)(temp_linear)
+    q_quartz_output = quartz.decode_outputs(quartz_output, t_max=t_max)
+
+    print(q_ann_output - q_quartz_output)
+    print(f"Layer weight mean is {linear_layer.weight.mean()}, std is {linear_layer.weight.std()}.")
+
+    if not torch.allclose(q_ann_output, q_quartz_output, atol=0.05, rtol=0.1):
+        import ipdb; ipdb.set_trace()
+
+    torch.testing.assert_close(q_ann_output, q_quartz_output, atol=0.05, rtol=0.1)
+    

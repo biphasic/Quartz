@@ -1,0 +1,35 @@
+import torch
+import torch.nn as nn
+import quartz
+import pytest
+
+
+@pytest.mark.parametrize("weight, value", [
+        (1., 0,),
+        (0.5, 0,),
+        (1., 0.2093,),
+        (0.2093, 0.2093,),
+        (0.456, 0.456,),
+        (-1., 0.2093,),
+        (1., 1,),
+        (0.5, 1,),
+        (0,  1,),
+])
+def test_inputs(weight, value):
+    t_max = 2 ** 8 + 1
+    values = torch.ones((1, 1)) * value
+    q_values = quartz.quantize_inputs(values, t_max)
+
+    linear_layer = nn.Linear(1, 1, bias=False)
+    linear_layer.weight = torch.nn.Parameter(torch.ones_like(linear_layer.weight)*weight)
+    ann_output = linear_layer(q_values)
+    q_ann_output = quartz.quantize_inputs(ann_output, t_max)
+
+    temp_q_values = quartz.encode_inputs(q_values, t_max=t_max)
+    temp_linear = linear_layer(temp_q_values.flatten(0, 1)).unflatten(0, (1, -1))
+    quartz_output = quartz.IF(t_max=t_max, rectification=False)(temp_linear)
+    q_quartz_output = quartz.decode_outputs(quartz_output, t_max=t_max)
+
+    print(f"Ann output is {q_ann_output.item()}, snn output is {q_quartz_output.item()}.")
+
+    assert torch.all(q_ann_output == q_quartz_output)
