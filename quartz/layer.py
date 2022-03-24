@@ -29,7 +29,6 @@ class IF(sl.StatefulLayer):
             self.init_state_with_shape((batch_size, *trailing_dim))
 
         # counter weight and readout
-        print(data[:, self.t_max - 1])
         data[:, self.t_max - 1] += 1 - data.sum(1)
 
         output_spikes = torch.zeros_like(data)
