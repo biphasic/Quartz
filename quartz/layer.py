@@ -1,7 +1,8 @@
+from audioop import bias
 import sinabs.layers as sl
 import sinabs.activation as sina
 import torch
-import torch.nn as nn
+from .utils import encode_inputs
 
 
 class IF(sl.StatefulLayer):
@@ -9,6 +10,7 @@ class IF(sl.StatefulLayer):
         self,
         t_max: int,
         rectification: bool = True,
+        bias: float = 0.0,
         record_v_mem: bool = False,
     ):
         super().__init__(state_names=["v_mem", "i_syn"])
@@ -18,6 +20,7 @@ class IF(sl.StatefulLayer):
         self.spike_fn = sina.SingleSpike
         self.reset_fn = sina.MembraneReset()
         self.surrogate_grad_fn = sina.Heaviside()
+        self.bias = torch.as_tensor(bias)
         self.record_v_mem = record_v_mem
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
@@ -28,6 +31,14 @@ class IF(sl.StatefulLayer):
         ):
             self.init_state_with_shape((batch_size, *trailing_dim))
 
+        # remove bias for every time step
+        data -= self.bias
+        
+        # add temporal code of bias
+        bias_per_neuron = torch.ones((batch_size, *trailing_dim)) * self.bias
+        temp_bias = encode_inputs(bias_per_neuron, t_max=self.t_max)
+        data += temp_bias
+        
         # counter weight and readout
         data[:, self.t_max - 1] += 1 - data.sum(1)
 

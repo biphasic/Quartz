@@ -82,7 +82,7 @@ def test_bias(bias):
 
     temp_q_values = quartz.encode_inputs(values, t_max=t_max)
     temp_linear = linear_layer(temp_q_values.flatten(0, 1)).unflatten(0, (1, -1))
-    quartz_output = quartz.IF(t_max=t_max, rectification=False)(temp_linear)
+    quartz_output = quartz.IF(t_max=t_max, rectification=False, bias=bias)(temp_linear)
     q_quartz_output = quartz.decode_outputs(quartz_output, t_max=t_max)
 
     print(
