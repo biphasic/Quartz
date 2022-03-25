@@ -6,10 +6,10 @@ from collections import OrderedDict
 
 
 def from_model(
-        model: nn.Module,
-        t_max: int,
-        batch_size: int,
-    ):
+    model: nn.Module,
+    t_max: int,
+    batch_size: int,
+):
     # model = copy.deepcopy(model)
 
     snn = OrderedDict()
@@ -17,7 +17,16 @@ def from_model(
     for name, module in list(model.named_children()):
         # if it's one of the layers we're looking for, substitute it
         if isinstance(module, nn.ReLU):
-            snn.update([(name, quartz.IFSqueeze(t_max=t_max, rectification=True, batch_size=batch_size))])
+            snn.update(
+                [
+                    (
+                        name,
+                        quartz.IFSqueeze(
+                            t_max=t_max, rectification=True, batch_size=batch_size
+                        ),
+                    )
+                ]
+            )
 
         elif isinstance(module, (nn.Conv2d, nn.Linear, nn.AvgPool2d, nn.Flatten)):
             snn.update([(name, module)])

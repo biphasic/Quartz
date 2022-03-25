@@ -5,7 +5,7 @@ import torch.nn as nn
 
 def test_conversion():
     torch.set_printoptions(sci_mode=False)
-    
+
     # ann = nn.Conv2d(2, 4, 3, bias=False)
     ann = nn.Sequential(
         nn.Conv2d(2, 4, 3, bias=False),
@@ -17,7 +17,7 @@ def test_conversion():
         nn.ReLU(),
     )
 
-    t_max = 2**8+1
+    t_max = 2**8 + 1
     batch_size = 2
 
     values = torch.rand((batch_size, 2, 5, 5)) / 3

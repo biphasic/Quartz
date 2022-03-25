@@ -4,7 +4,7 @@ import quartz
 
 
 def test_encoding_input():
-    t_max = 2 ** 4
+    t_max = 2**4
     values = torch.rand(2, 3, 4, 5)
     input = quartz.encode_inputs(values, t_max=t_max)
 
@@ -13,7 +13,7 @@ def test_encoding_input():
 
 
 def test_decoding_output():
-    t_max = 2 ** 4
+    t_max = 2**4
     values = torch.rand(2, 3, 1, 1)
     q_values = quartz.quantize_inputs(values, t_max)
     temp_input = quartz.encode_inputs(values, t_max=t_max)
