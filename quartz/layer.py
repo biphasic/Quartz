@@ -21,6 +21,9 @@ class IF(sl.StatefulLayer):
         self.reset_fn = sina.MembraneReset()
         self.surrogate_grad_fn = sina.Heaviside()
         self.bias = torch.as_tensor(bias)
+        # self.bias.requires_grad = False
+        if self.bias.numel() > 1:
+            self.bias = self.bias.unsqueeze(1).unsqueeze(1)
         self.record_v_mem = record_v_mem
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
@@ -33,12 +36,12 @@ class IF(sl.StatefulLayer):
 
         # remove bias for every time step
         data -= self.bias
-        
+
         # add temporal code of bias
         bias_per_neuron = torch.ones((batch_size, *trailing_dim)) * self.bias
         temp_bias = encode_inputs(bias_per_neuron, t_max=self.t_max)
         data += temp_bias
-        
+
         # counter weight and readout
         data[:, self.t_max - 1] += 1 - data.sum(1)
 
