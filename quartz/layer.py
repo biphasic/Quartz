@@ -23,6 +23,7 @@ class IF(sl.StatefulLayer):
         self.bias = torch.as_tensor(bias).clone()
         if self.bias.shape == torch.Size():
             self.bias = self.bias.unsqueeze(0)
+        self.bias = self.bias.clamp(min=-1, max=1)
         self.record_v_mem = record_v_mem
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:

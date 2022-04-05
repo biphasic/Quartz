@@ -2,23 +2,23 @@ import torch
 
 
 def encode_inputs(data, t_max):
+    time_index = ((t_max - 1) * (1 - data)).round().long().flatten()
     input = torch.zeros(data.shape[0], 3 * t_max - 3, *data.shape[1:])
     if len(data.shape) == 4:
-        for b in range(data.shape[0]):
-            for c in range(data.shape[1]):
-                for h in range(data.shape[2]):
-                    for w in range(data.shape[3]):
-                        input[
-                            b,
-                            ((t_max - 1) * (1 - data[b, c, h, w])).round().long(),
-                            c,
-                            h,
-                            w,
-                        ] = 1.0
+        batch, channel, height, width = data.shape
+        batch_index = torch.arange(batch).repeat_interleave(channel*height*width).repeat(1)
+        channel_index = torch.arange(channel).repeat_interleave(height*width).repeat(batch)
+        height_index = torch.arange(height).repeat_interleave(width).repeat(batch*channel)
+        width_index = torch.arange(width).repeat(batch*channel*height)
+
+        input[batch_index, time_index, channel_index, height_index, width_index] = 1.0
+    
     elif len(data.shape) == 2:
-        for b in range(data.shape[0]):
-            for c in range(data.shape[1]):
-                input[b, ((t_max - 1) * (1 - data[b, c])).round().long(), c] = 1.0
+        batch, channel = data.shape
+        batch_index = torch.arange(batch).repeat_interleave(channel)
+        channel_index = torch.arange(channel).repeat(batch)
+
+        input[batch_index, time_index, channel_index] = 1.0
     return input
 
 
