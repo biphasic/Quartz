@@ -25,13 +25,10 @@ def encode_inputs(data, t_max):
 def decode_outputs(output, t_max):
     batch_size, n_time_steps, *trailing_dim = output.shape
     values = torch.zeros(batch_size, *trailing_dim)
-    indices = [torch.where(output == 1)]
-    if len(indices[0]) == 5:
-        for b, t, c, h, w in indices:
-            values[b, c, h, w] = (t_max - 1 - t) / (t_max - 1)
-    elif len(indices[0]) == 3:
-        for b, t, c in indices:
-            values[b, c] = (t_max - 1 - t) / (t_max - 1)
+    indices = list(torch.where(output == 1))
+    time_values = (t_max - 1 - indices[1]) / (t_max - 1)
+    indices.pop(1)
+    values[indices] = time_values
     return values
 
 
