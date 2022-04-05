@@ -104,9 +104,9 @@ def test_multi_bias():
 
     temp_q_values = quartz.encode_inputs(values, t_max=t_max)
     temp_linear = conv_layer(temp_q_values.flatten(0, 1)).unflatten(0, (1, -1))
-    quartz_output = quartz.IF(
-        t_max=t_max, rectification=False, bias=conv_layer.bias.clone()
-    )(temp_linear)
+    quartz_output = quartz.IF(t_max=t_max, rectification=False, bias=conv_layer.bias)(
+        temp_linear
+    )
     q_quartz_output = quartz.decode_outputs(quartz_output, t_max=t_max)
 
     assert torch.all(q_ann_output == q_quartz_output)

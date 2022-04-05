@@ -6,14 +6,13 @@ import torch.nn as nn
 def test_conversion():
     torch.set_printoptions(sci_mode=False)
 
-    # ann = nn.Conv2d(2, 4, 3, bias=False)
     ann = nn.Sequential(
-        nn.Conv2d(2, 4, 3, bias=False),
+        nn.Conv2d(2, 4, 3),
         nn.ReLU(),
-        nn.Conv2d(4, 8, 3, bias=False),
+        nn.Conv2d(4, 8, 3),
         nn.ReLU(),
         nn.Flatten(),
-        nn.Linear(8, 10, bias=False),
+        nn.Linear(8, 10),
         nn.ReLU(),
     )
 

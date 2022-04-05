@@ -20,10 +20,9 @@ class IF(sl.StatefulLayer):
         self.spike_fn = sina.SingleSpike
         self.reset_fn = sina.MembraneReset()
         self.surrogate_grad_fn = sina.Heaviside()
-        self.bias = torch.as_tensor(bias)
-        # self.bias.requires_grad = False
-        if self.bias.numel() > 1:
-            self.bias = self.bias.unsqueeze(1).unsqueeze(1)
+        self.bias = torch.as_tensor(bias).clone()
+        if self.bias.shape == torch.Size():
+            self.bias = self.bias.unsqueeze(0)
         self.record_v_mem = record_v_mem
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
@@ -33,6 +32,9 @@ class IF(sl.StatefulLayer):
             (batch_size, *trailing_dim)
         ):
             self.init_state_with_shape((batch_size, *trailing_dim))
+
+        while len(trailing_dim) != len(self.bias.shape):
+            self.bias = self.bias.unsqueeze(1)
 
         # remove bias for every time step
         data -= self.bias
