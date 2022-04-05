@@ -1,8 +1,8 @@
-from audioop import bias
+import torch.nn as nn
 import sinabs.layers as sl
 import sinabs.activation as sina
 import torch
-from .utils import encode_inputs
+from .utils import encode_inputs, decode_outputs
 
 
 class IF(sl.StatefulLayer):
@@ -83,7 +83,7 @@ class IF(sl.StatefulLayer):
             if self.record_v_mem:
                 self.v_mem_recorded[:, step] = self.v_mem
 
-        # return output_spikes
+        # return shifted output_spikes
         return torch.hstack(
             (
                 output_spikes[:, self.t_max - 1 :],
@@ -92,6 +92,32 @@ class IF(sl.StatefulLayer):
         )
 
 
+class PoolingWrapper(nn.Module):
+    def __init__(self, module, t_max):
+        super().__init__()
+        self.module = module
+        self.t_max = t_max
+
+    def forward(self, data):
+        data = decode_outputs(data, t_max=self.t_max)
+        data = self.module(data)
+        return encode_inputs(data, t_max=self.t_max)
+
+
+class PoolingWrapperSqueeze(PoolingWrapper, sl.SqueezeMixin):
+    def __init__(
+        self,
+        batch_size=None,
+        num_timesteps=None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.squeeze_init(batch_size, num_timesteps)
+
+    def forward(self, input_data: torch.Tensor) -> torch.Tensor:
+        return self.squeeze_forward(input_data, super().forward)
+
+    
 class IFSqueeze(IF, sl.SqueezeMixin):
     """
     Same as parent class, only takes in squeezed 4D input (Batch*Time, Channel, Height, Width)

@@ -32,10 +32,13 @@ def from_model(
                 ]
             )
 
-        elif isinstance(module, (nn.Conv2d, nn.Linear, nn.AvgPool2d, nn.Flatten)):
+        elif isinstance(module, (nn.Conv2d, nn.Linear, nn.Flatten)):
             snn.update([(name, module)])
             if hasattr(module, "bias") and module.bias is not None:
                 last_bias = module.bias.clone()
+
+        elif isinstance(module, (nn.AvgPool2d, nn.MaxPool2d,)):
+            snn.update([(name, quartz.layer.PoolingWrapper(module, t_max=t_max))])
 
         # if in turn it has children, go iteratively inside
         elif len(list(module.named_children())):

@@ -9,8 +9,14 @@ def test_conversion():
     ann = nn.Sequential(
         nn.Conv2d(2, 4, 3),
         nn.ReLU(),
-        nn.Conv2d(4, 8, 3),
+        # nn.MaxPool2d(2),
+        nn.Conv2d(4, 4, 1, stride=2),
         nn.ReLU(),
+        nn.Conv2d(4, 8, 4),
+        nn.ReLU(),
+        nn.Conv2d(8, 8, 1, stride=3),
+        nn.ReLU(),
+        # nn.MaxPool2d(3),
         nn.Flatten(),
         nn.Linear(8, 10),
         nn.ReLU(),
@@ -19,7 +25,7 @@ def test_conversion():
     t_max = 2**8 + 1
     batch_size = 2
 
-    values = torch.rand((batch_size, 2, 5, 5)) / 3
+    values = torch.rand((batch_size, 2, 14, 14)) / 3
     q_values = quartz.quantize_inputs(values, t_max)
     ann_output = ann(q_values)
 
