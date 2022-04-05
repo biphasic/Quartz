@@ -117,7 +117,7 @@ class PoolingWrapperSqueeze(PoolingWrapper, sl.SqueezeMixin):
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         return self.squeeze_forward(input_data, super().forward)
 
-    
+
 class IFSqueeze(IF, sl.SqueezeMixin):
     """
     Same as parent class, only takes in squeezed 4D input (Batch*Time, Channel, Height, Width)

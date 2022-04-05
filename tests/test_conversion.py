@@ -9,14 +9,10 @@ def test_conversion():
     ann = nn.Sequential(
         nn.Conv2d(2, 4, 3),
         nn.ReLU(),
-        # nn.MaxPool2d(2),
-        nn.Conv2d(4, 4, 1, stride=2),
-        nn.ReLU(),
+        nn.MaxPool2d(2),
         nn.Conv2d(4, 8, 4),
         nn.ReLU(),
-        nn.Conv2d(8, 8, 1, stride=3),
-        nn.ReLU(),
-        # nn.MaxPool2d(3),
+        nn.MaxPool2d(3),
         nn.Flatten(),
         nn.Linear(8, 10),
         nn.ReLU(),
@@ -30,10 +26,11 @@ def test_conversion():
     ann_output = ann(q_values)
 
     snn = quartz.from_model(ann, t_max=t_max, batch_size=batch_size)
+    assert len(snn) == len(ann)
     temp_q_values = quartz.encode_inputs(q_values, t_max=t_max)
     temp_output = snn(temp_q_values.flatten(0, 1)).unflatten(0, (batch_size, -1))
     snn_output = quartz.decode_outputs(temp_output, t_max=t_max)
 
     assert ann_output.shape == snn_output.shape
     print(ann_output - snn_output)
-    torch.testing.assert_close(ann_output, snn_output, atol=0.05, rtol=0.2)
+    torch.testing.assert_close(ann_output, snn_output, atol=0.03, rtol=0.2)
