@@ -41,8 +41,8 @@ class IF(sl.StatefulLayer):
         data -= self.bias
 
         # add temporal code of bias
-        bias_per_neuron = torch.ones((batch_size, *trailing_dim)) * self.bias
-        temp_bias = encode_inputs(bias_per_neuron, t_max=self.t_max)
+        bias_per_neuron = torch.ones((batch_size, *trailing_dim), device=data.device) * self.bias
+        temp_bias = encode_inputs(bias_per_neuron, t_max=self.t_max).to(data.device)
         data += temp_bias
 
         # counter weight and readout
@@ -100,9 +100,9 @@ class PoolingWrapper(nn.Module):
         self.t_max = t_max
 
     def forward(self, data):
-        data = decode_outputs(data, t_max=self.t_max)
+        data = decode_outputs(data, t_max=self.t_max).to(data.device)
         data = self.module(data)
-        return encode_inputs(data, t_max=self.t_max)
+        return encode_inputs(data, t_max=self.t_max).to(data.device)
 
 
 class PoolingWrapperSqueeze(PoolingWrapper, sl.SqueezeMixin):
