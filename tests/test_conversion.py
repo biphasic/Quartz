@@ -25,7 +25,7 @@ def test_conversion():
 
     ann.eval()
 
-    t_max = 2**8 + 1
+    t_max = 2**6 + 1
     batch_size = 2
 
     values = torch.rand((batch_size, 1, 28, 28)) / 3
@@ -38,5 +38,5 @@ def test_conversion():
     snn_output = quartz.decode_outputs(temp_output, t_max=t_max)
 
     assert ann_output.shape == snn_output.shape
-    print(f"Sum of ann output is {ann_output.sum()}, absolute difference between outputs is {(ann_output - snn_output).sum()}")
-    torch.testing.assert_close(ann_output, snn_output, atol=0.1, rtol=0.2)
+    print(f"Sum of ann output is {ann_output.sum()}, biggest difference between outputs is {(ann_output - snn_output).max()}")
+    torch.testing.assert_close(ann_output, snn_output, atol=0.05, rtol=0.1)

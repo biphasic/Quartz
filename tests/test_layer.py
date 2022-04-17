@@ -94,5 +94,4 @@ def test_pooling_output():
     snn_output = quartz.decode_outputs(temp_pooling, t_max=t_max)
 
     assert ann_output.shape == snn_output.shape
-    print(ann_output - snn_output)
     torch.testing.assert_close(ann_output, snn_output, atol=0.01, rtol=0.2)

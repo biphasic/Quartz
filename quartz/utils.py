@@ -42,11 +42,12 @@ def quantize_parameters(weights, biases, weight_acc, t_max):
 def quantize_inputs(inputs, t_max):
     return (inputs * (t_max - 1)).round() / (t_max - 1)
 
+
 def get_accuracy(model, data_loader, device, t_max=None):
     correct_pred = 0 
     n = 0
     model.eval()
-    for X, y_true in tqdm(data_loader):
+    for X, y_true in iter(data_loader):
         X = X.to(device)
         if t_max is not None:
             X = encode_inputs(X, t_max=t_max).to(device)
@@ -58,4 +59,4 @@ def get_accuracy(model, data_loader, device, t_max=None):
         _, predicted_labels = torch.max(y_prob, 1)
         n += y_true.size(0)
         correct_pred += (predicted_labels == y_true).sum()
-    return correct_pred.float() / n
+    return (correct_pred.float() / n).item() * 100
