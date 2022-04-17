@@ -38,5 +38,7 @@ def test_conversion():
     snn_output = quartz.decode_outputs(temp_output, t_max=t_max)
 
     assert ann_output.shape == snn_output.shape
-    print(f"Sum of ann output is {ann_output.sum()}, biggest difference between outputs is {(ann_output - snn_output).max()}")
+    print(
+        f"Sum of ann output is {ann_output.sum()}, biggest difference between outputs is {(ann_output - snn_output).max()}"
+    )
     torch.testing.assert_close(ann_output, snn_output, atol=0.05, rtol=0.1)

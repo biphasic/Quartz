@@ -43,6 +43,10 @@ import pytest
             0,
             1,
         ),
+        (
+            1.0,
+            1.25,
+        ),
     ],
 )
 def test_inputs(weight, value):

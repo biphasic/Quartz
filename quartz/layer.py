@@ -41,12 +41,16 @@ class IF(sl.StatefulLayer):
         data -= self.bias
 
         # add temporal code of bias
-        bias_per_neuron = torch.ones((batch_size, *trailing_dim), device=data.device) * self.bias
+        bias_per_neuron = (
+            torch.ones((batch_size, *trailing_dim), device=data.device) * self.bias
+        )
         temp_bias = encode_inputs(bias_per_neuron, t_max=self.t_max).to(data.device)
         data += temp_bias
 
+        readout_time = (self.t_max - 1) * 2
+        rectification_time = (self.t_max - 1) * 3
         # counter weight and readout
-        data[:, self.t_max - 1] += 1 - data.sum(1)
+        data[:, readout_time] += 1 - data.sum(1)
 
         output_spikes = torch.zeros_like(data)
         if self.record_v_mem:
@@ -69,8 +73,8 @@ class IF(sl.StatefulLayer):
             self.i_syn[spikes.bool()] = 0
 
             # if relu is activated, make sure neurons that haven't spiked until
-            # now do so at t_max * 2
-            if self.rectification and step == (self.t_max - 1) * 2:
+            # now do so at t_max * 3
+            if self.rectification and step == rectification_time:
                 non_spiking_indices = list(torch.where(output_spikes.sum(1) == 0))
                 if len(non_spiking_indices) == 0:
                     # every neuron spiked

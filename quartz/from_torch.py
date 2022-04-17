@@ -16,7 +16,7 @@ def from_model(
 
     if add_spiking_output:
         if isinstance(list(model.children())[-1], (nn.Conv2d, nn.Linear)):
-            model.add_module('output', nn.ReLU())
+            model.add_module("output", nn.ReLU())
         else:
             print(
                 "Spiking output can only be added to sequential models that do not end in a ReLU. No layer has been added."
