@@ -1,12 +1,4 @@
-import torch
 import torch.nn as nn
-from torch.nn import functional as F
-import pytorch_lightning as pl
-from argparse import ArgumentParser
-from torch.nn import functional as F
-from torch.utils.data import DataLoader, random_split
-from torchvision.datasets.mnist import MNIST
-from torchvision import transforms
 
 
 class ConvNet(nn.Sequential):
