@@ -30,19 +30,6 @@ class IF(sl.StatefulLayer):
         ):
             self.init_state_with_shape((batch_size, *trailing_dim))
 
-        # while len(trailing_dim) != len(self.bias.shape):
-        #     self.bias = self.bias.unsqueeze(1)
-
-        # # remove bias for every time step
-        # data -= self.bias
-
-        # # add temporal code of bias
-        # bias_per_neuron = (
-        #     torch.ones((batch_size, *trailing_dim), device=data.device) * self.bias
-        # )
-        # temp_bias = encode_inputs(bias_per_neuron, t_max=self.t_max).to(data.device)
-        # data += temp_bias
-
         readout_time = (self.t_max - 1) * 2
         rectification_time = (self.t_max - 1) * 3
         # counter weight and readout
@@ -102,11 +89,12 @@ class Repeat(nn.Module):
         self.module = module
 
     def forward(self, x):
-        batch_size, n_time_steps, *trailing_dim = x.shape
+        batch_size = x.shape[0]
         x = self.module(x.flatten(0, 1))
         x = x.unflatten(0, (batch_size, -1))
 
         if hasattr(self.module, 'bias') and self.module.bias is not None:
+            batch_size, n_time_steps, *trailing_dim = x.shape
             bias = self.module.bias.clone().clamp(min=-1.5, max=1.5)
             while len(trailing_dim) != len(bias.shape):
                 bias = bias.unsqueeze(1)
