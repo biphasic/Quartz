@@ -95,3 +95,15 @@ def test_pooling_output():
 
     assert ann_output.shape == snn_output.shape
     torch.testing.assert_close(ann_output, snn_output, atol=0.01, rtol=0.2)
+
+
+def test_repeat():
+    t_max = 2**3
+    data = torch.rand((5, 2, 3, 3))
+    temp_data = quartz.encode_inputs(data, t_max=t_max)
+    module = nn.Conv2d(2, 4, 3)
+
+    timed_module = quartz.Repeat(module)
+    output = timed_module(temp_data)
+
+    assert output.shape == (5, 60, 4, 1, 1)

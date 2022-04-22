@@ -3,6 +3,7 @@ import sinabs.layers as sl
 import sinabs.activation as sina
 import torch
 from .utils import encode_inputs, decode_outputs
+from dataclasses import dataclass
 
 
 class IF(sl.StatefulLayer):
@@ -10,7 +11,6 @@ class IF(sl.StatefulLayer):
         self,
         t_max: int,
         rectification: bool = True,
-        bias: float = 0.0,
         record_v_mem: bool = False,
     ):
         super().__init__(state_names=["v_mem", "i_syn"])
@@ -20,10 +20,6 @@ class IF(sl.StatefulLayer):
         self.spike_fn = sina.SingleSpike
         self.reset_fn = sina.MembraneReset()
         self.surrogate_grad_fn = sina.Heaviside()
-        self.bias = torch.as_tensor(bias).clone()
-        if self.bias.shape == torch.Size():
-            self.bias = self.bias.unsqueeze(0)
-        self.bias = self.bias.clamp(min=-1.5, max=1.5)
         self.record_v_mem = record_v_mem
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
@@ -34,18 +30,18 @@ class IF(sl.StatefulLayer):
         ):
             self.init_state_with_shape((batch_size, *trailing_dim))
 
-        while len(trailing_dim) != len(self.bias.shape):
-            self.bias = self.bias.unsqueeze(1)
+        # while len(trailing_dim) != len(self.bias.shape):
+        #     self.bias = self.bias.unsqueeze(1)
 
-        # remove bias for every time step
-        data -= self.bias
+        # # remove bias for every time step
+        # data -= self.bias
 
-        # add temporal code of bias
-        bias_per_neuron = (
-            torch.ones((batch_size, *trailing_dim), device=data.device) * self.bias
-        )
-        temp_bias = encode_inputs(bias_per_neuron, t_max=self.t_max).to(data.device)
-        data += temp_bias
+        # # add temporal code of bias
+        # bias_per_neuron = (
+        #     torch.ones((batch_size, *trailing_dim), device=data.device) * self.bias
+        # )
+        # temp_bias = encode_inputs(bias_per_neuron, t_max=self.t_max).to(data.device)
+        # data += temp_bias
 
         readout_time = (self.t_max - 1) * 2
         rectification_time = (self.t_max - 1) * 3
@@ -100,6 +96,30 @@ class IF(sl.StatefulLayer):
         return f"IF(t_max={self.t_max}, rectification={self.rectification})"
 
 
+class Repeat(nn.Module):
+    def __init__(self, module: nn.Module):
+        super().__init__()
+        self.module = module
+
+    def forward(self, x):
+        batch_size, n_time_steps, *trailing_dim = x.shape
+        x = self.module(x.flatten(0, 1))
+        x = x.unflatten(0, (batch_size, -1))
+
+        if hasattr(self.module, 'bias') and self.module.bias is not None:
+            bias = self.module.bias.clone().clamp(min=-1.5, max=1.5)
+            while len(trailing_dim) != len(bias.shape):
+                bias = bias.unsqueeze(1)
+            x = x - bias
+            t_max = (n_time_steps + 4) // 4
+            bias_per_neuron = (
+                torch.ones((batch_size, *trailing_dim), device=x.device) * bias
+            )
+            temp_bias = encode_inputs(bias_per_neuron, t_max=t_max)
+            x += temp_bias
+        return x
+
+
 class IFSqueeze(IF, sl.SqueezeMixin):
     """
     Same as parent class, only takes in squeezed 4D input (Batch*Time, Channel, Height, Width)
@@ -118,6 +138,9 @@ class IFSqueeze(IF, sl.SqueezeMixin):
 
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         return self.squeeze_forward(input_data, super().forward)
+
+    def __repr__(self):
+        return "Squeeze" + super().__repr__()
 
 
 class PoolingWrapper(nn.Module):
@@ -144,4 +167,5 @@ class PoolingWrapperSqueeze(PoolingWrapper, sl.SqueezeMixin):
 
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         return self.squeeze_forward(input_data, super().forward)
+
 
