@@ -96,6 +96,29 @@ class IF(sl.StatefulLayer):
             )
         )
 
+    def __repr__(self):
+        return f"IF(t_max={self.t_max}, rectification={self.rectification})"
+
+
+class IFSqueeze(IF, sl.SqueezeMixin):
+    """
+    Same as parent class, only takes in squeezed 4D input (Batch*Time, Channel, Height, Width)
+    instead of 5D input (Batch, Time, Channel, Height, Width) in order to be compatible with
+    layers that can only take a 4D input, such as convolutional and pooling layers.
+    """
+
+    def __init__(
+        self,
+        batch_size=None,
+        num_timesteps=None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.squeeze_init(batch_size, num_timesteps)
+
+    def forward(self, input_data: torch.Tensor) -> torch.Tensor:
+        return self.squeeze_forward(input_data, super().forward)
+
 
 class PoolingWrapper(nn.Module):
     def __init__(self, module, t_max):
@@ -122,22 +145,3 @@ class PoolingWrapperSqueeze(PoolingWrapper, sl.SqueezeMixin):
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         return self.squeeze_forward(input_data, super().forward)
 
-
-class IFSqueeze(IF, sl.SqueezeMixin):
-    """
-    Same as parent class, only takes in squeezed 4D input (Batch*Time, Channel, Height, Width)
-    instead of 5D input (Batch, Time, Channel, Height, Width) in order to be compatible with
-    layers that can only take a 4D input, such as convolutional and pooling layers.
-    """
-
-    def __init__(
-        self,
-        batch_size=None,
-        num_timesteps=None,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.squeeze_init(batch_size, num_timesteps)
-
-    def forward(self, input_data: torch.Tensor) -> torch.Tensor:
-        return self.squeeze_forward(input_data, super().forward)
