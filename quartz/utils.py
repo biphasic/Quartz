@@ -71,13 +71,13 @@ def get_accuracy(model, data_loader, device, t_max=None):
     return (correct_pred.float() / n).item() * 100
 
 
-def plot_output_histograms(model, sample_input, output_layers):
+def plot_output_histograms(model, sample_input, output_layers, t_max=None):
     fig, axes = plt.subplots(len(output_layers), 1, figsize=(4, int(len(output_layers)*2)))
     model.eval()
 
     activations = []
     def hook(module, inp, output):
-        activations.append(output.detach().cpu().ravel().numpy())
+        activations.append(output.detach()) # 
 
     for i, layer in enumerate(output_layers):
         handle = layer.register_forward_hook(hook)
@@ -85,6 +85,11 @@ def plot_output_histograms(model, sample_input, output_layers):
         with torch.no_grad():
             model(sample_input)
 
-        axes[i].hist(activations[0], bins=30)
+        if t_max is not None:
+            output = decode_outputs(activations[0], t_max=t_max)
+        else:
+            output = activations[0]
+        
+        axes[i].hist(output.cpu().ravel().numpy(), bins=30)
         activations = []
         handle.remove()
