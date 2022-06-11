@@ -17,5 +17,5 @@ class ConvNet(nn.Sequential):
             nn.Dropout2d(0.8),
             nn.Flatten(),
             nn.Linear(120, 10),
-            nn.ReLU(),
+            # nn.ReLU(),
         )

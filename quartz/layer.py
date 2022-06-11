@@ -107,6 +107,9 @@ class Repeat(nn.Module):
             x += temp_bias
         return x
 
+    def __repr__(self):
+        return "Repeated " + self.module.__repr__()
+
 
 class IFSqueeze(IF, sl.SqueezeMixin):
     """

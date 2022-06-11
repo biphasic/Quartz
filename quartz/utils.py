@@ -1,5 +1,6 @@
 import torch
 from tqdm.auto import tqdm
+import matplotlib.pyplot as plt
 
 
 def encode_inputs(data, t_max):
@@ -68,3 +69,22 @@ def get_accuracy(model, data_loader, device, t_max=None):
         n += y_true.size(0)
         correct_pred += (predicted_labels == y_true).sum()
     return (correct_pred.float() / n).item() * 100
+
+
+def plot_output_histograms(model, sample_input, output_layers):
+    fig, axes = plt.subplots(len(output_layers), 1, figsize=(4, int(len(output_layers)*2)))
+    model.eval()
+
+    activations = []
+    def hook(module, inp, output):
+        activations.append(output.detach().cpu().ravel().numpy())
+
+    for i, layer in enumerate(output_layers):
+        handle = layer.register_forward_hook(hook)
+
+        with torch.no_grad():
+            model(sample_input)
+
+        axes[i].hist(activations[0], bins=30)
+        activations = []
+        handle.remove()
