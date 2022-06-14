@@ -16,10 +16,10 @@ class IF(sl.StatefulLayer):
         super().__init__(state_names=["v_mem", "i_syn"])
         self.t_max = t_max
         self.rectification = rectification
-        self.spike_threshold = t_max
+        self.spike_threshold = t_max - 0.5/t_max
         self.spike_fn = sina.SingleSpike
         self.reset_fn = sina.MembraneReset()
-        self.surrogate_grad_fn = sina.Heaviside()
+        self.surrogate_grad_fn = None
         self.record_v_mem = record_v_mem
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
@@ -145,6 +145,9 @@ class PoolingWrapper(nn.Module):
         data = self.module(data)
         return encode_inputs(data, t_max=self.t_max).to(data.device)
 
+    def __repr__(self):
+        return "Wrapped " + self.module.__repr__()
+
 
 class PoolingWrapperSqueeze(PoolingWrapper, sl.SqueezeMixin):
     def __init__(
@@ -159,4 +162,5 @@ class PoolingWrapperSqueeze(PoolingWrapper, sl.SqueezeMixin):
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         return self.squeeze_forward(input_data, super().forward)
 
-
+    def __repr__(self):
+        return "Squeeze " + super().__repr__()
