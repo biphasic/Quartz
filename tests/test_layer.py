@@ -37,7 +37,7 @@ def test_if_rectification(input_dims):
 
 
 def test_conv_output():
-    t_max = 2**8
+    t_max = 2**6
     batch_size = 3
     values = (torch.rand(batch_size, 2, 5, 5) - 0) / 3
     q_values = quartz.quantize_inputs(values, t_max)
@@ -55,12 +55,12 @@ def test_conv_output():
 
 
 def test_linear_output():
-    t_max = 2**8
+    t_max = 2**6
     batch_size = 3
-    values = (torch.rand(batch_size, 2000) - 0) / 3
+    values = (torch.rand(batch_size, 200) - 0) / 3
     q_values = quartz.quantize_inputs(values, t_max)
 
-    linear_layer = nn.Linear(2000, 2000, bias=False)
+    linear_layer = nn.Linear(200, 200, bias=False)
     ann_output = linear_layer(q_values)
     q_ann_output = quartz.quantize_inputs(ann_output, t_max=t_max)
 
@@ -75,26 +75,26 @@ def test_linear_output():
 
 
 def test_pooling_output():
-    t_max = 2**8
+    t_max = 2**4
     batch_size = 3
 
     values = torch.rand((batch_size, 2, 10, 10)) / 3
     q_values = quartz.quantize_inputs(values, t_max)
 
     pooling_layer = nn.MaxPool2d(2)
-    quartz_layer = quartz.layer.PoolingWrapperSqueeze(
-        module=pooling_layer, t_max=t_max, batch_size=batch_size
-    )
     ann_output = pooling_layer(q_values)
 
     temp_q_values = quartz.encode_inputs(q_values, t_max=t_max)
+    quartz_layer = quartz.layer.PoolingWrapperSqueeze(
+        module=pooling_layer, t_max=t_max, batch_size=batch_size
+    )
     temp_pooling = quartz_layer(temp_q_values.flatten(0, 1)).unflatten(
         0, (batch_size, -1)
     )
     snn_output = quartz.decode_outputs(temp_pooling, t_max=t_max)
 
     assert ann_output.shape == snn_output.shape
-    torch.testing.assert_close(ann_output, snn_output, atol=0.01, rtol=0.2)
+    torch.all(ann_output == snn_output)
 
 
 def test_repeat():

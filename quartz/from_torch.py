@@ -23,7 +23,8 @@ def from_model(
 
     snn = OrderedDict()
     i = 0
-    for name, module in list(model.named_children()):
+    last_index = len(list(model.named_children())) - 1
+    for name, module in model.named_children():
         # if it's one of the layers we're looking for, substitute it
         if isinstance(module, nn.ReLU):
             snn.update(
@@ -32,7 +33,7 @@ def from_model(
                         str(i),
                         quartz.IF(
                             t_max=t_max,
-                            rectification=True,
+                            rectification=False if i+1 == last_index and add_spiking_output else True,
                         ),
                     )
                 ]
