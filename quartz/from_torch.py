@@ -33,7 +33,7 @@ def from_model(
                         str(i),
                         quartz.IF(
                             t_max=t_max,
-                            rectification=False if i+1 == last_index and add_spiking_output else True,
+                            rectification=False if add_spiking_output and module == list(model.children())[-1] else True,
                         ),
                     )
                 ]
