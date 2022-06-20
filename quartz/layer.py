@@ -16,7 +16,7 @@ class IF(sl.StatefulLayer):
         super().__init__(state_names=["v_mem", "i_syn"])
         self.t_max = t_max
         self.rectification = rectification
-        self.spike_threshold = t_max - 0.5/t_max
+        self.spike_threshold = t_max - 0.5
         self.spike_fn = sina.SingleSpike
         self.reset_fn = sina.MembraneReset()
         self.surrogate_grad_fn = None
@@ -25,10 +25,8 @@ class IF(sl.StatefulLayer):
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         batch_size, n_time_steps, *trailing_dim = data.shape
 
-        if not self.is_state_initialised() or not self.state_has_shape(
-            (batch_size, *trailing_dim)
-        ):
-            self.init_state_with_shape((batch_size, *trailing_dim))
+        # reset states
+        self.init_state_with_shape((batch_size, *trailing_dim))
 
         readout_time = (self.t_max - 1) * 2
         rectification_time = (self.t_max - 1) * 3
@@ -70,6 +68,9 @@ class IF(sl.StatefulLayer):
 
             if self.record_v_mem:
                 self.v_mem_recorded[:, step] = self.v_mem
+
+        # log how many neurons had their membrane potential modified after they spiked
+        self.early_spikes = len(torch.nonzero(self.v_mem)) / self.v_mem.numel()
 
         # return shifted output_spikes
         return torch.hstack(

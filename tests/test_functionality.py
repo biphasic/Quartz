@@ -5,7 +5,7 @@ import pytest
 import itertools
 
 
-@pytest.mark.parametrize("t_max, weight, value", itertools.product((2**5,), (1,), (0, 1)))
+@pytest.mark.parametrize("t_max, weight, value", itertools.product((2**3, 2**6), (0, 0.3, 0.5, 1), (0, 0.22, 0.51, 0.73, 1)))
 def test_inputs(t_max, weight, value):
     values = torch.ones((1, 1)) * value
     q_values = quartz.quantize_inputs(values, t_max)
@@ -27,7 +27,6 @@ def test_inputs(t_max, weight, value):
     )
 
     assert q_ann_output.item() == q_quartz_output.item()
-# @pytest.mark.parametrize("t_max, weight, value", itertools.product((2**3, 2**5, 2**7), (0, 0.3, 0.5, 1), (0, 0.25, 0.5, 0.66, 1)))
 
 
 @pytest.mark.parametrize("bias", [0.234, 0.5, 0.55, 0.8, 1])

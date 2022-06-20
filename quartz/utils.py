@@ -1,6 +1,7 @@
 import torch
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
+import sinabs.layers as sl
 
 
 def encode_inputs(data, t_max):
@@ -56,6 +57,7 @@ def get_accuracy(model, data_loader, device, t_max=None):
     correct_pred = 0
     n = 0
     model.eval()
+    early_spikes = []
     for X, y_true in iter(data_loader):
         X = X.to(device)
         if t_max is not None:
@@ -65,9 +67,11 @@ def get_accuracy(model, data_loader, device, t_max=None):
             y_prob = model(X)
         if t_max is not None:
             y_prob = decode_outputs(y_prob, t_max=t_max)
+            early_spikes.append([module.early_spikes for module in model.children() if isinstance(module, sl.StatefulLayer)])
         _, predicted_labels = torch.max(y_prob, 1)
         n += y_true.size(0)
         correct_pred += (predicted_labels == y_true).sum()
+    if t_max is not None: print("Early spike % / layer: ", 100*torch.tensor(early_spikes).mean(0))
     return (correct_pred.float() / n).item() * 100
 
 
