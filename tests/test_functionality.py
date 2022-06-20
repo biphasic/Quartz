@@ -2,55 +2,11 @@ import torch
 import torch.nn as nn
 import quartz
 import pytest
+import itertools
 
 
-@pytest.mark.parametrize(
-    "weight, value",
-    [
-        (
-            1.0,
-            0,
-        ),
-        (
-            0.5,
-            0,
-        ),
-        (
-            1.0,
-            0.2093,
-        ),
-        (
-            0.2093,
-            0.2093,
-        ),
-        (
-            0.456,
-            0.456,
-        ),
-        (
-            -1.0,
-            0.2093,
-        ),
-        (
-            1.0,
-            1,
-        ),
-        (
-            0.5,
-            1,
-        ),
-        (
-            0,
-            1,
-        ),
-        (
-            1.0,
-            1.25,
-        ),
-    ],
-)
-def test_inputs(weight, value):
-    t_max = 2**8 + 1
+@pytest.mark.parametrize("t_max, weight, value", itertools.product((2**5,), (1,), (0, 1)))
+def test_inputs(t_max, weight, value):
     values = torch.ones((1, 1)) * value
     q_values = quartz.quantize_inputs(values, t_max)
 
@@ -70,12 +26,13 @@ def test_inputs(weight, value):
         f"Ann output is {q_ann_output.item()}, snn output is {q_quartz_output.item()}."
     )
 
-    assert torch.all(q_ann_output == q_quartz_output)
+    assert q_ann_output.item() == q_quartz_output.item()
+# @pytest.mark.parametrize("t_max, weight, value", itertools.product((2**3, 2**5, 2**7), (0, 0.3, 0.5, 1), (0, 0.25, 0.5, 0.66, 1)))
 
 
 @pytest.mark.parametrize("bias", [0.234, 0.5, 0.55, 0.8, 1])
 def test_bias(bias):
-    t_max = 2**8 + 1
+    t_max = 2**5 + 1
     values = torch.zeros((1, 1))
     q_bias = quartz.quantize_inputs(torch.tensor(bias).float(), t_max=t_max)
 

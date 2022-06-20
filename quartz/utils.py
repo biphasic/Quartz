@@ -73,6 +73,8 @@ def get_accuracy(model, data_loader, device, t_max=None):
 
 def plot_output_histograms(model, sample_input, output_layers, t_max=None):
     fig, axes = plt.subplots(len(output_layers), 1, figsize=(4, int(len(output_layers)*2)))
+    if not isinstance(axes, list):
+        axes = [axes]
     model.eval()
 
     activations = []
