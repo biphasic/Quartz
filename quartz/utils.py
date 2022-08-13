@@ -57,7 +57,9 @@ def get_accuracy(model, data_loader, device, t_max=None):
     correct_pred = 0
     n = 0
     model.eval()
+    n_spike_layers = sum([isinstance(layer, sl.StatefulLayer) for layer in model.modules()])
     early_spikes = []
+    earliest_output_spikes = []
     for X, y_true in iter(data_loader):
         X = X.to(device)
         if t_max is not None:
@@ -66,12 +68,15 @@ def get_accuracy(model, data_loader, device, t_max=None):
         with torch.no_grad():
             y_prob = model(X)
         if t_max is not None:
+            earliest_output_spikes.append(t_max - torch.where(y_prob)[1].float().mean())
             y_prob = decode_outputs(y_prob, t_max=t_max)
             early_spikes.append([module.early_spikes for module in model.children() if isinstance(module, sl.StatefulLayer)])
         _, predicted_labels = torch.max(y_prob, 1)
         n += y_true.size(0)
         correct_pred += (predicted_labels == y_true).sum()
-    if t_max is not None: print("Early spike % / layer: ", 100*torch.tensor(early_spikes).mean(0))
+    # normally n_spike_layers - 1 + the earliest spikes of the last layer but also need to add input latency.
+    if t_max is not None: print(f"Earliest spike at {(n_spike_layers)*t_max + torch.tensor(earliest_output_spikes).mean()} time steps.")
+    # if t_max is not None: print("Early spike % / layer: ", 100*torch.tensor(early_spikes).mean(0))
     return (correct_pred.float() / n).item() * 100
 
 
