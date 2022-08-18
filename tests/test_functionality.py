@@ -29,7 +29,7 @@ def test_inputs(t_max, weight, value):
     assert q_ann_output.item() == q_quartz_output.item()
 
 
-@pytest.mark.parametrize("bias", [0.234, 0.5, 0.55, 0.8, 1])
+@pytest.mark.parametrize("bias", [-0.3, 0.234, 0.5, 0.55, 0.8, 1])
 def test_bias(bias):
     t_max = 2**5 + 1
     values = torch.zeros((1, 1))
@@ -52,9 +52,9 @@ def test_bias(bias):
 
 def test_multi_bias():
     t_max = 2**8 + 1
-    values = torch.zeros((1, 5, 1, 1))
+    values = torch.zeros((1, 5, 2, 2))
 
-    conv_layer = nn.Conv2d(5, 5, 1)
+    conv_layer = nn.Conv2d(5, 5, 2)
     conv_layer.weight = torch.nn.Parameter(torch.zeros_like(conv_layer.weight))
     conv_layer.bias.data = quartz.quantize_inputs(conv_layer.bias.data.clone(), t_max)
     # print(f"layer bias: {conv_layer.bias}")

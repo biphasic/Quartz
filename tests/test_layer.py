@@ -98,14 +98,21 @@ def test_pooling_output():
 
 
 def test_repeat():
-    t_max = 2**3
+    t_max = 2**4
+    # torch.random.manual_seed(2)
     values = torch.rand((5, 2, 3, 3))
     q_values = quartz.quantize_inputs(values, t_max)
     temp_data = quartz.encode_inputs(q_values, t_max=t_max)
 
-    module = nn.Conv2d(2, 4, 3)
+    module = nn.Conv2d(2, 4, 3, bias=True)
+    module.bias.data = quartz.quantize_inputs(module.bias.data.clone()*2, t_max)
     timed_module = quartz.Repeat(module)
 
-    output = timed_module(temp_data)
+    temp_conv = timed_module(temp_data)
+    quartz_output = quartz.IF(t_max=t_max, rectification=False)(temp_conv)
+    q_quartz_output = quartz.decode_outputs(quartz_output, t_max).ravel()
 
-    assert output.shape == (5, 28, 4, 1, 1)
+    ann_output = module(q_values)
+    q_ann_output = quartz.quantize_inputs(ann_output, t_max=t_max).ravel()
+
+    torch.testing.assert_close(q_ann_output, q_quartz_output, atol=0, rtol=0)
