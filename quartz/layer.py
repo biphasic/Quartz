@@ -72,6 +72,8 @@ class IF(sl.StatefulLayer):
         # log how many neurons had their membrane potential modified after they spiked
         self.early_spikes = len(torch.nonzero(self.v_mem)) / self.v_mem.numel()
 
+        self.init_state_with_shape((0))
+
         # return shifted output_spikes
         return torch.hstack(
             (
