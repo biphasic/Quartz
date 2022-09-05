@@ -2,6 +2,7 @@ import torch
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 import sinabs.layers as sl
+import numpy as np
 
 
 def encode_inputs(data, t_max):
@@ -82,6 +83,55 @@ def get_accuracy(model, data_loader, device, t_max=None):
         # if t_max is not None: print(f"Earliest spike at {(n_spike_layers)*t_max + torch.tensor(earliest_output_spikes).mean()} time steps.")
         # if t_max is not None: print("Early spike % / layer: ", 100*torch.tensor(early_spikes).mean(0))
     return (correct_pred.float() / n).item() * 100
+
+
+def plot_output_comparison(model1, model2, sample_input, output_layers, every_n=1, savefig=None):
+    fig, axes = plt.subplots(len(output_layers), 1, figsize=(4, int(len(output_layers)*3)))
+    if not isinstance(axes, np.ndarray):
+        axes = [axes]
+    model1 = model1.eval()
+    model2 = model2.eval()
+
+    named_layers_model1 = dict(model1.named_children())
+    named_layers_model2 = dict(model2.named_children())
+
+    activations1 = []
+    activations2 = []
+    def hook1(module, inp, output):
+        activations1.append(output.detach())
+
+    def hook2(module, inp, output):
+        activations2.append(output.detach())
+
+    for i, layer in enumerate(output_layers):
+        output_layer1 = named_layers_model1[layer]
+        output_layer2 = named_layers_model2[layer]
+
+        handle1 = output_layer1.register_forward_hook(hook1)
+        handle2 = output_layer2.register_forward_hook(hook2)
+
+        model1(sample_input)
+        model2(sample_input)
+        
+        data1 = activations1[-1].cpu().ravel().numpy()
+        data2 = activations2[-1].cpu().ravel().numpy()
+        sorted_idx = np.argsort(data1)
+        data1_sorted = data1[sorted_idx][::every_n]
+        data2_sorted = data2[sorted_idx][::every_n]
+
+        axes[i].scatter(data1_sorted, data2_sorted, label='Output corr')
+        # axes[i].plot([data1_sorted[0], data1_sorted[-1]], [data1_sorted[0], data1_sorted[-1]], label='1:1 corr', color='C2')
+        axes[i].set_xlabel(f"Original activations layer {layer}")
+        axes[i].set_ylabel('Normalised activations')
+        axes[i].grid(True)
+        axes[i].legend()
+        activations1 = []
+        activations2 = []
+        handle1.remove()
+        handle2.remove()
+    if savefig:
+        plt.tight_layout()
+        plt.savefig(savefig)
 
 
 def plot_output_histograms(model, sample_input, output_layers, t_max=None):
