@@ -85,8 +85,8 @@ def get_accuracy(model, data_loader, device, t_max=None):
     return (correct_pred.float() / n).item() * 100
 
 
-def plot_output_comparison(model1, model2, sample_input, output_layers, every_n=1, savefig=None):
-    fig, axes = plt.subplots(len(output_layers), 1, figsize=(4, int(len(output_layers)*3)))
+def plot_output_comparison(model1, model2, sample_input, output_layers, every_n=1, every_c=1, savefig=None):
+    fig, axes = plt.subplots(len(output_layers), 1, figsize=(6, int(len(output_layers)*3)))
     if not isinstance(axes, np.ndarray):
         axes = [axes]
     model1 = model1.eval()
@@ -113,14 +113,23 @@ def plot_output_comparison(model1, model2, sample_input, output_layers, every_n=
         model1(sample_input)
         model2(sample_input)
         
-        data1 = activations1[-1].cpu().ravel().numpy()
-        data2 = activations2[-1].cpu().ravel().numpy()
-        sorted_idx = np.argsort(data1)
-        data1_sorted = data1[sorted_idx][::every_n]
-        data2_sorted = data2[sorted_idx][::every_n]
+        # data1 = activations1[-1].cpu().ravel().numpy()[::every_n]
+        # data2 = activations2[-1].cpu().ravel().numpy()[::every_n]
+        # sorted_idx = np.argsort(data1)
+        # data1_sorted = data1[sorted_idx]
+        # data2_sorted = data2[sorted_idx]
+        # axes[i].scatter(data1, data2)
 
-        axes[i].scatter(data1_sorted, data2_sorted, label='Output corr')
-        # axes[i].plot([data1_sorted[0], data1_sorted[-1]], [data1_sorted[0], data1_sorted[-1]], label='1:1 corr', color='C2')
+        data1 = torch.moveaxis(activations1[-1].cpu(), 1, 0).flatten(1, 3).numpy()[::every_c, ::every_n]
+        data2 = torch.moveaxis(activations2[-1].cpu(), 1, 0).flatten(1, 3).numpy()[::every_c, ::every_n]
+        # sorted_idx = np.argsort(data1, axis=1)
+        # data1_sorted = data1.ravel()[sorted_idx.ravel()].reshape(data1.shape[0], -1)[::every_c, ::every_n]
+        # data2_sorted = data2.ravel()[sorted_idx.ravel()].reshape(data2.shape[0], -1)[::every_c, ::every_n]
+
+        print(data1.shape)
+        for j in range(data1.shape[0]):
+            axes[i].scatter(data1[j], data2[j])
+        
         axes[i].set_xlabel(f"Original activations layer {layer}")
         axes[i].set_ylabel('Normalised activations')
         axes[i].grid(True)
