@@ -3,6 +3,8 @@ from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 import sinabs.layers as sl
 import numpy as np
+from typing import List
+import torch.nn as nn
 
 
 def encode_inputs(data, t_max):
@@ -120,20 +122,20 @@ def plot_output_comparison(model1, model2, sample_input, output_layers, every_n=
         # data2_sorted = data2[sorted_idx]
         # axes[i].scatter(data1, data2)
 
-        data1 = torch.moveaxis(activations1[-1].cpu(), 1, 0).flatten(1, 3).numpy()[::every_c, ::every_n]
-        data2 = torch.moveaxis(activations2[-1].cpu(), 1, 0).flatten(1, 3).numpy()[::every_c, ::every_n]
+        data1 = torch.moveaxis(activations1[-1].cpu(), 1, 0).flatten(1, -1).numpy()[::every_c, ::every_n]
+        data2 = torch.moveaxis(activations2[-1].cpu(), 1, 0).flatten(1, -1).numpy()[::every_c, ::every_n]
         # sorted_idx = np.argsort(data1, axis=1)
         # data1_sorted = data1.ravel()[sorted_idx.ravel()].reshape(data1.shape[0], -1)[::every_c, ::every_n]
         # data2_sorted = data2.ravel()[sorted_idx.ravel()].reshape(data2.shape[0], -1)[::every_c, ::every_n]
 
-        print(data1.shape)
+        # print(data1.shape)
         for j in range(data1.shape[0]):
             axes[i].scatter(data1[j], data2[j])
         
         axes[i].set_xlabel(f"Original activations layer {layer}")
         axes[i].set_ylabel('Normalised activations')
         axes[i].grid(True)
-        axes[i].legend()
+        # axes[i].legend()
         activations1 = []
         activations2 = []
         handle1.remove()
@@ -167,3 +169,86 @@ def plot_output_histograms(model, sample_input, output_layers, t_max=None):
         axes[i].hist(output.cpu().ravel().numpy(), bins=30)
         activations = []
         handle.remove()
+
+
+def normalize_weights(
+    ann: nn.Module,
+    sample_data: torch.Tensor,
+    param_layer_names: List[str],
+    percentile: float = 99,
+):
+    """
+    Rescale the weights of the network, such that the activity of each specified layer is normalized.
+
+    The method implemented here roughly follows the paper:
+    `Conversion of Continuous-Valued Deep Networks to Efficient Event-Driven Networks for Image Classification` by Rueckauer et al.
+    https://www.frontiersin.org/article/10.3389/fnins.2017.00682
+
+    Args:
+         ann(nn.Module): Torch module
+         sample_data (nn.Tensor): Input data to normalize the network with
+         param_layers (List[str]): List of names of layers to verify activity of normalization. 
+         percentile (float): A number between 0 and 100 to determine activity to be normalized by.
+          where a 100 corresponds to the max activity of the network. Defaults to 99.
+    """
+    max_outputs = []
+    def save_data(lyr, input, output):
+        max_outputs.append(np.percentile(output.cpu().numpy(), percentile))
+
+    named_layers = dict(ann.named_children())
+
+    for i in range(len(param_layer_names)):
+        param_layer = named_layers[param_layer_names[i]]
+
+        handle = param_layer.register_forward_hook(save_data)
+
+        with torch.no_grad():
+            _ = ann(sample_data)
+
+            max_layer_output = max_outputs[-1]
+
+            param_layer.weight.data /= max_layer_output
+            if hasattr(param_layer, 'bias'):
+                bias_scale = np.product(np.array(max_outputs))
+                # print(f"weight scale: {1/max_layer_output}, bias_scale: {1/bias_scale}")
+                param_layer.bias.data /= bias_scale
+
+            # # Rescale weights to normalize max output
+            # for p in param_layer.parameters():
+            #     p.data *= 1 / max_lyr_out
+
+        handle.remove()
+
+
+def normalize_weights_alternative(
+    ann: nn.Module,
+    sample_data: torch.Tensor,
+    param_layer_names,
+    percentile: float = 99,
+):
+    ann = ann.eval()
+    max_outputs = []
+    def save_data(lyr, input, output):
+        max_outputs.append(np.percentile(output.cpu().detach().numpy(), percentile))
+
+    named_layers = dict(ann.named_children())
+    param_layers = [named_layers[param_layer_name] for param_layer_name in param_layer_names]
+    handles = []
+    for param_layer in param_layers:
+        handle = param_layer.register_forward_hook(save_data)
+        handles.append(handle)
+
+    with torch.no_grad():
+        _ = ann(sample_data)
+
+    prev_scale = 1
+    for i, param_layer in enumerate(param_layers):
+        prev_output = 1 if i == 0 else max_outputs[i-1]
+        weight_scale = prev_output/max_outputs[i]
+        param_layer.weight.data *= weight_scale
+        bias_scale = prev_scale * weight_scale
+        param_layer.bias.data *= bias_scale
+        print(f"weight scale: {weight_scale}, bias_scale: {bias_scale}")
+        prev_scale = weight_scale
+
+    [handle.remove() for handle in handles]
