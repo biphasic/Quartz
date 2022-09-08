@@ -1,11 +1,12 @@
 import torch
 from tqdm.auto import tqdm
+import mpl_scatter_density
 import matplotlib.pyplot as plt
 import sinabs.layers as sl
 import numpy as np
 from typing import List
 import torch.nn as nn
-
+    
 
 def encode_inputs(data, t_max):
     time_index = ((t_max - 1) * (2 - data)).round().long().flatten()
@@ -252,3 +253,58 @@ def normalize_weights_alternative(
         prev_scale = weight_scale
 
     [handle.remove() for handle in handles]
+
+def plot_output_comparison_ann_snn(ann, snn, sample_input, ann_output_layers, snn_output_layers, t_max, every_n=1, every_c=1, savefig=None):
+    assert len(ann_output_layers) == len(snn_output_layers)
+    fig, axes = plt.subplots(len(ann_output_layers), 1, figsize=(6, int(len(ann_output_layers)*3)))
+    if savefig: plt.suptitle(f"t_max: {t_max}")
+    
+    if not isinstance(axes, np.ndarray):
+        axes = [axes]
+    ann = ann.eval()
+    snn = snn.eval()
+
+    ann_layers = dict(ann.named_children())
+    snn_layers = dict(snn.named_children())
+
+    activations1 = []
+    activations2 = []
+    def hook1(module, inp, output):
+        activations1.append(output.detach())
+
+    def hook2(module, inp, output):
+        activations2.append(decode_outputs(output.detach(), t_max=t_max))
+
+    for i, (ann_layer_name, snn_layer_name) in enumerate(list(zip(ann_output_layers, snn_output_layers))):
+        ann_layer = ann_layers[ann_layer_name]
+        snn_layer = snn_layers[snn_layer_name]
+
+        handle1 = ann_layer.register_forward_hook(hook1)
+        handle2 = snn_layer.register_forward_hook(hook2)
+
+        ann(sample_input)
+        snn(encode_inputs(sample_input, t_max=t_max).to(sample_input.device))
+
+        # data1 = torch.moveaxis(activations1[-1].cpu(), 1, 0).flatten(1, -1).numpy()[::every_c, ::every_n]
+        # data2 = torch.moveaxis(activations2[-1].cpu(), 1, 0).flatten(1, -1).numpy()[::every_c, ::every_n]
+        data1 = torch.moveaxis(activations1[-1].cpu(), 1, 0).flatten().numpy()[::every_n]
+        data2 = torch.moveaxis(activations2[-1].cpu(), 1, 0).flatten().numpy()[::every_n]
+
+        sorted_idx = np.argsort(data1)
+        data1_sorted = data1[sorted_idx]
+        data2_sorted = data2[sorted_idx]
+        
+        # for j in range(data1.shape[0]):
+        axes[i].scatter_density(data1_sorted, data2_sorted)#, c=data1_sorted[::-1])
+        
+        axes[i].set_xlabel(f"ANN activations layer {ann_layer_name}")
+        axes[i].set_ylabel('SNN activations')
+        axes[i].grid(True)
+        # axes[i].legend()
+        activations1 = []
+        activations2 = []
+        handle1.remove()
+        handle2.remove()
+    if savefig:
+        plt.tight_layout()
+        plt.savefig(savefig)
