@@ -254,6 +254,7 @@ def normalize_weights_alternative(
 
     [handle.remove() for handle in handles]
 
+
 def plot_output_comparison_ann_snn(ann, snn, sample_input, ann_output_layers, snn_output_layers, t_max, every_n=1, every_c=1, savefig=None):
     assert len(ann_output_layers) == len(snn_output_layers)
     fig, axes = plt.subplots(len(ann_output_layers), 1, figsize=(6, int(len(ann_output_layers)*3)))
