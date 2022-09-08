@@ -6,7 +6,8 @@ import sinabs.layers as sl
 import numpy as np
 from typing import List
 import torch.nn as nn
-    
+import seaborn as sns
+
 
 def encode_inputs(data, t_max):
     time_index = ((t_max - 1) * (2 - data)).round().long().flatten()
@@ -57,7 +58,7 @@ def quantize_inputs(inputs, t_max):
     return (inputs * (t_max - 1)).round() / (t_max - 1)
 
 
-def get_accuracy(model, data_loader, device, t_max=None):
+def get_accuracy(model, data_loader, device, preprocess=None, t_max=None):
     correct_pred = 0
     n = 0
     model = model.to(device)
@@ -68,6 +69,10 @@ def get_accuracy(model, data_loader, device, t_max=None):
     with tqdm(total=len(data_loader)) as progress_bar:
         for X, y_true in iter(data_loader):
             X = X.to(device)
+            if preprocess is not None:
+                preprocess = preprocess.to(device)
+                with torch.no_grad():
+                    X = preprocess(X)
             if t_max is not None:
                 X = encode_inputs(X, t_max=t_max).to(device)
             y_true = y_true.to(device)
@@ -86,7 +91,6 @@ def get_accuracy(model, data_loader, device, t_max=None):
         # if t_max is not None: print(f"Earliest spike at {(n_spike_layers)*t_max + torch.tensor(earliest_output_spikes).mean()} time steps.")
         # if t_max is not None: print("Early spike % / layer: ", 100*torch.tensor(early_spikes).mean(0))
     return (correct_pred.float() / n).item() * 100
-
 
 def plot_output_comparison(model1, model2, sample_input, output_layers, every_n=1, every_c=1, savefig=None):
     fig, axes = plt.subplots(len(output_layers), 1, figsize=(6, int(len(output_layers)*3)))
@@ -180,10 +184,6 @@ def normalize_weights(
 ):
     """
     Rescale the weights of the network, such that the activity of each specified layer is normalized.
-
-    The method implemented here roughly follows the paper:
-    `Conversion of Continuous-Valued Deep Networks to Efficient Event-Driven Networks for Image Classification` by Rueckauer et al.
-    https://www.frontiersin.org/article/10.3389/fnins.2017.00682
 
     Args:
          ann(nn.Module): Torch module
@@ -290,16 +290,19 @@ def plot_output_comparison_ann_snn(ann, snn, sample_input, ann_output_layers, sn
         data1 = torch.moveaxis(activations1[-1].cpu(), 1, 0).flatten().numpy()[::every_n]
         data2 = torch.moveaxis(activations2[-1].cpu(), 1, 0).flatten().numpy()[::every_n]
 
-        sorted_idx = np.argsort(data1)
-        data1_sorted = data1[sorted_idx]
-        data2_sorted = data2[sorted_idx]
+        # sorted_idx = np.argsort(data1)
+        # data1_sorted = data1[sorted_idx]
+        # data2_sorted = data2[sorted_idx]
         
-        # for j in range(data1.shape[0]):
-        axes[i].scatter_density(data1_sorted, data2_sorted)#, c=data1_sorted[::-1])
+        # sns.histplot(x=data1, y=data2, bins=20, cbar=True, cbar_kws=dict(shrink=.75), ax=axes[i])
+        axes[i].scatter(data1, data2)
+
+        # axis = fig.add_subplot(len(ann_output_layers), 1, i+1)#, projection='scatter_density')
+        # axis.scatter(data1, data2, c=)#, c=data1_sorted[::-1])
         
         axes[i].set_xlabel(f"ANN activations layer {ann_layer_name}")
         axes[i].set_ylabel('SNN activations')
-        axes[i].grid(True)
+        # axis[i].grid(True)
         # axes[i].legend()
         activations1 = []
         activations2 = []
