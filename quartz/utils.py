@@ -58,7 +58,7 @@ def quantize_inputs(inputs, t_max):
     return (inputs * (t_max - 1)).round() / (t_max - 1)
 
 
-def get_accuracy(model, data_loader, device, preprocess=None, t_max=None):
+def get_accuracy(model, data_loader, device, preprocess=None, print_early_spikes=False, print_output_time=False, t_max=None):
     correct_pred = 0
     n = 0
     model = model.to(device)
@@ -79,17 +79,19 @@ def get_accuracy(model, data_loader, device, preprocess=None, t_max=None):
             with torch.no_grad():
                 y_prob = model(X)
             if t_max is not None:
-                # earliest_output_spikes.append(t_max - torch.where(y_prob)[1].float().mean())
+                if print_output_time:
+                    earliest_output_spikes.append(t_max - torch.where(y_prob)[1].float().mean())
                 y_prob = decode_outputs(y_prob, t_max=t_max)
-                # early_spikes.append([module.early_spikes for module in model.children() if isinstance(module, sl.StatefulLayer)])
+                if print_early_spikes:
+                    early_spikes.append([module.early_spikes for module in model.children() if isinstance(module, sl.StatefulLayer)])
             predicted_labels = y_prob.argmax(1)
             n += y_true.size(0)
             correct_pred += (predicted_labels == y_true).sum()
             progress_bar.set_postfix({'Valid_acc': (correct_pred.float() / n).item() * 100})
             progress_bar.update()
         # normally n_spike_layers - 1 + the earliest spikes of the last layer but also need to add input latency.
-        # if t_max is not None: print(f"Earliest spike at {(n_spike_layers)*t_max + torch.tensor(earliest_output_spikes).mean()} time steps.")
-        # if t_max is not None: print("Early spike % / layer: ", 100*torch.tensor(early_spikes).mean(0))
+        if t_max is not None and print_output_time: print(f"Earliest spike at {(n_spike_layers)*t_max + torch.tensor(earliest_output_spikes).mean()} time steps.")
+        if t_max is not None and print_early_spikes: print("Early spike % / layer: ", 100*torch.tensor(early_spikes).mean(0))
     return (correct_pred.float() / n).item() * 100
 
 def plot_output_comparison(model1, model2, sample_input, output_layers, every_n=1, every_c=1, savefig=None):
