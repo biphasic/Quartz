@@ -347,3 +347,5 @@ def fuse_all_conv_bn(model):
                 setattr(model, name, nn.Identity())
         else:
             stack.append((name, module))
+
+
