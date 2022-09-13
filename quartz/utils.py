@@ -314,3 +314,18 @@ def plot_output_comparison_ann_snn(ann, snn, sample_input, ann_output_layers, sn
     if savefig:
         plt.tight_layout()
         plt.savefig(savefig)
+
+
+def count_n_neurons(model, sample_input, add_last_layer=False):
+    assert sample_input.shape[0] == 1
+    n_output_neurons = []
+    def count_neurons(self, input, output):
+        n_output_neurons.append(output.numel())
+    for layer in model.children():
+        if isinstance(layer, nn.ReLU):
+            layer.register_forward_hook(count_neurons)
+    if add_last_layer:
+        model[-1].register_forward_hook(count_neurons)
+    with torch.no_grad():
+        model(sample_input)
+    return torch.tensor(n_output_neurons).sum().item()
