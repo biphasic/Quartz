@@ -1,12 +1,12 @@
 import torch
 from tqdm.auto import tqdm
-import mpl_scatter_density
 import matplotlib.pyplot as plt
 import sinabs.layers as sl
 import numpy as np
 from typing import List
 import torch.nn as nn
 import seaborn as sns
+from torch.nn.utils.fusion import fuse_conv_bn_eval
 
 
 def encode_inputs(data, t_max):
@@ -329,3 +329,21 @@ def count_n_neurons(model, sample_input, add_last_layer=False):
     with torch.no_grad():
         model(sample_input)
     return torch.tensor(n_output_neurons).sum().item()
+
+
+def fuse_all_conv_bn(model):
+    """
+    Fuses all consecutive Conv2d and BatchNorm2d layers.
+    License: Copyright Zeeshan Khan Suri, CC BY-NC 4.0
+    """
+    stack = []
+    for name, module in model.named_children(): # immediate children
+        if list(module.named_children()): # is not empty (not a leaf)
+            fuse_all_conv_bn(module)
+            
+        if isinstance(module, nn.BatchNorm2d):
+            if isinstance(stack[-1][1], nn.Conv2d):
+                setattr(model, stack[-1][0], fuse_conv_bn_eval(stack[-1][1], module))
+                setattr(model, name, nn.Identity())
+        else:
+            stack.append((name, module))
