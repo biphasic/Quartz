@@ -331,6 +331,15 @@ def count_n_neurons(model, sample_input, add_last_layer=False):
     return torch.tensor(n_output_neurons).sum().item()
 
 
+def remove_identity_layers(model):
+    children_list = list(model.named_children())
+    for name, module in children_list:
+        if list(module.named_children()):
+            remove_identity_layers(module)
+        if isinstance(module, nn.Identity):
+            delattr(model, name)
+
+
 def fuse_all_conv_bn(model):
     """
     Fuses all consecutive Conv2d and BatchNorm2d layers.
@@ -349,3 +358,84 @@ def fuse_all_conv_bn(model):
             stack.append((name, module))
 
 
+def plot_output_comparison_new(model1, model2, sample_input, every_n=1, every_c=1, savefig=None):
+    sns.set_theme(style="dark")
+    output_layer_pairs = [((name1, layer1), (name2, layer2)) for (name1, layer1), (name2, layer2) in zip(model1.named_modules(), model2.named_modules()) if isinstance(layer1, (nn.Conv2d, nn.Linear)) and isinstance(layer2, (nn.Conv2d, nn.Linear))]
+    n_output_layers = len(output_layer_pairs)
+    fig, axes = plt.subplots(n_output_layers, 1, figsize=(6, int(n_output_layers*4)))
+    if not isinstance(axes, np.ndarray):
+        axes = [axes]
+    model1 = model1.eval()
+    model2 = model2.eval()
+
+    activations1 = []
+    activations2 = []
+    def hook1(module, inp, output):
+        activations1.append(output.detach())
+
+    def hook2(module, inp, output):
+        activations2.append(output.detach())
+
+    for i, ((name1, layer1), (name2, layer2)) in enumerate(output_layer_pairs):
+        if isinstance(layer1, (nn.Conv2d, nn.Linear)):
+            handle1 = layer1.register_forward_hook(hook1)
+            handle2 = layer2.register_forward_hook(hook2)
+
+            model1(sample_input)
+            model2(sample_input)
+
+            data1 = torch.moveaxis(activations1[-1].cpu(), 1, 0).flatten(1, -1).numpy()[::every_c, ::every_n]
+            data2 = torch.moveaxis(activations2[-1].cpu(), 1, 0).flatten(1, -1).numpy()[::every_c, ::every_n]
+
+            # print(data1.shape)
+            sns.scatterplot(x=data1.ravel(), y=data2.ravel(), s=10, color=".15", ax=axes[i])
+            sns.histplot(x=data1.ravel(), y=data2.ravel(), bins=100, pthresh=.1, cmap="mako", ax=axes[i])
+            
+            axes[i].set_xlabel(f"Original activations layer {name1}")
+            axes[i].set_ylabel('Normalised activations')
+            axes[i].grid(True)
+            activations1 = []
+            activations2 = []
+            handle1.remove()
+            handle2.remove()
+    if savefig:
+        plt.tight_layout()
+        plt.savefig(savefig)
+
+
+def normalize_outputs(
+    model: nn.Module,
+    sample_data: torch.Tensor,
+    percentile: float = 99,
+    max_outputs = []
+):
+    def save_data(lyr, input, output):
+        # max_outputs.append(2)
+        max_outputs.append(np.percentile(output.cpu().numpy(), percentile))
+
+    module_input = []
+    def get_module_input(module, input, output):
+        module_input.append(input[0])
+
+    for name, module in model.named_children(): # immediate children
+        if list(module.named_children()): # is not empty (not a leaf)
+            handle = module.register_forward_hook(get_module_input)
+            with torch.no_grad():
+                model(sample_data)
+            sample_input = module_input[-1]
+            max_outputs = normalize_outputs(module, sample_input, percentile, max_outputs)
+            handle.remove()
+
+        if isinstance(module, (nn.Conv2d, nn.Linear)):
+            handle = module.register_forward_hook(save_data)
+
+            with torch.no_grad():
+                _ = model(sample_data)
+                max_layer_output = max_outputs[-1]
+                module.weight.data /= max_layer_output
+                if hasattr(module, 'bias'):
+                    bias_scale = np.product(np.array(max_outputs))
+                    # print(f"weight scale: {1/max_layer_output}, bias_scale: {1/bias_scale}")
+                    module.bias.data /= bias_scale
+            handle.remove()
+    return max_outputs
