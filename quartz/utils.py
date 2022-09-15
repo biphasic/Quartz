@@ -83,16 +83,16 @@ def get_accuracy(model, data_loader, device, preprocess=None, print_early_spikes
                     earliest_output_spikes.append(t_max - torch.where(y_prob)[1].float().mean())
                 y_prob = decode_outputs(y_prob, t_max=t_max)
                 if print_early_spikes:
-                    early_spikes.append([module.early_spikes for module in model.children() if isinstance(module, sl.StatefulLayer)])
+                    early_spikes.append([module.early_spikes for module in model.modules() if isinstance(module, sl.StatefulLayer)])
             predicted_labels = y_prob.argmax(1)
             n += y_true.size(0)
             correct_pred += (predicted_labels == y_true).sum()
             progress_bar.set_postfix({'Valid_acc': (correct_pred.float() / n).item() * 100})
             progress_bar.update()
-        # normally n_spike_layers - 1 + the earliest spikes of the last layer but also need to add input latency.
-        if t_max is not None and print_output_time: print(f"Earliest spike at {(n_spike_layers)*t_max + torch.tensor(earliest_output_spikes).mean()} time steps.")
+        if t_max is not None and print_output_time: print(f"Earliest spike at {(n_spike_layers-1)*t_max + torch.tensor(earliest_output_spikes).mean()} time steps on average.")
         if t_max is not None and print_early_spikes: print("Early spike % / layer: ", 100*torch.tensor(early_spikes).mean(0))
     return (correct_pred.float() / n).item() * 100
+
 
 def plot_output_comparison(model1, model2, sample_input, output_layers, every_n=1, every_c=1, savefig=None):
     fig, axes = plt.subplots(len(output_layers), 1, figsize=(6, int(len(output_layers)*3)))
@@ -319,16 +319,19 @@ def plot_output_comparison_ann_snn(ann, snn, sample_input, ann_output_layers, sn
 def count_n_neurons(model, sample_input, add_last_layer=False):
     assert sample_input.shape[0] == 1
     n_output_neurons = []
+    handles = []
     def count_neurons(self, input, output):
         n_output_neurons.append(output.numel())
-    for layer in model.children():
-        if isinstance(layer, nn.ReLU):
-            layer.register_forward_hook(count_neurons)
-    if add_last_layer:
-        model[-1].register_forward_hook(count_neurons)
+    for layer in model.modules():
+        if isinstance(layer, (nn.ReLU, nn.ReLU6)):
+            handles.append(layer.register_forward_hook(count_neurons))
     with torch.no_grad():
-        model(sample_input)
-    return torch.tensor(n_output_neurons).sum().item()
+        output = model(sample_input)
+    n_neurons = torch.tensor(n_output_neurons).sum().item()
+    if add_last_layer:
+        n_neurons += output.numel()
+    [handle.remove() for handle in handles]
+    return n_neurons
 
 
 def remove_identity_layers(model):
@@ -410,7 +413,6 @@ def normalize_outputs(
     max_outputs = []
 ):
     def save_data(lyr, input, output):
-        # max_outputs.append(2)
         max_outputs.append(np.percentile(output.cpu().numpy(), percentile))
 
     module_input = []

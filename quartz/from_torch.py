@@ -58,3 +58,26 @@ def from_model(
             i += 1
 
     return nn.Sequential(snn)
+
+
+def from_model2(
+    model: nn.Module,
+    t_max: int,
+    add_spiking_output: bool = False,
+):
+    for name, module in model.named_children(): # immediate children
+        if list(module.named_children()): # is not empty (not a leaf)
+            from_model2(module, t_max=t_max, add_spiking_output=add_spiking_output)
+            
+        if isinstance(module, (nn.ReLU, nn.ReLU6)):
+            setattr(model, name, quartz.IF(t_max=t_max, rectification=True))
+
+        elif isinstance(module, (nn.Conv2d, nn.Linear, nn.Flatten)):
+            setattr(model, name, quartz.Repeat(module))
+
+        elif isinstance(module, (nn.AvgPool2d, nn.MaxPool2d)):
+            setattr(model, name, quartz.layer.PoolingWrapper(module=module, t_max=t_max))
+
+# def add_spiking_output(model):
+#     return 
+#     # return model
