@@ -33,6 +33,7 @@ class IF(sl.StatefulLayer):
         # counter weight and readout
         data[:, readout_time] += 1 - data.sum(1)
 
+        self.n_ops = torch.count_nonzero(data) / batch_size
         output_spikes = torch.zeros_like(data)
         if self.record_v_mem:
             self.v_mem_recorded = torch.zeros_like(data)

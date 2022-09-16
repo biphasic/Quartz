@@ -409,7 +409,7 @@ def plot_output_comparison_new(model1, model2, sample_input, every_n=1, every_c=
 def normalize_outputs(
     model: nn.Module,
     sample_data: torch.Tensor,
-    percentile: float = 99,
+    percentile: float,
     max_outputs = []
 ):
     def save_data(lyr, input, output):
