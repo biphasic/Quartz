@@ -89,8 +89,9 @@ def get_accuracy(model, data_loader, device, preprocess=None, print_early_spikes
             correct_pred += (predicted_labels == y_true).sum()
             progress_bar.set_postfix({'Valid_acc': (correct_pred.float() / n).item() * 100})
             progress_bar.update()
-        if t_max is not None and print_output_time: print(f"Earliest spike at {(n_spike_layers-1)*t_max + torch.tensor(earliest_output_spikes).mean()} time steps on average.")
-        if t_max is not None and print_early_spikes: print("Early spike % / layer: ", 100*torch.tensor(early_spikes).mean(0), f", {100*torch.tensor(early_spikes).mean()}% early spikes overall.")
+        if t_max is not None:
+            if print_output_time: print(f"Earliest spike at {(n_spike_layers-1)*t_max + torch.tensor(earliest_output_spikes).mean()} time steps on average.")
+            if print_early_spikes: print("Early spike % / layer: ", 100*torch.tensor(early_spikes).mean(0), f", {100*torch.tensor(early_spikes).mean()}% early spikes overall.")
     return (correct_pred.float() / n).item() * 100
 
 
