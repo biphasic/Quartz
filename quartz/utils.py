@@ -73,6 +73,8 @@ def get_accuracy(model, data_loader, device, preprocess=None, print_early_spikes
                 preprocess = preprocess.to(device)
                 with torch.no_grad():
                     X = preprocess(X)
+                    # cut off inputs that are not covered by preprocessing
+                    X = torch.clamp(X, min=-2., max=2.)
             if t_max is not None:
                 X = encode_inputs(X, t_max=t_max).to(device)
             y_true = y_true.to(device)
