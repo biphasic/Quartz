@@ -58,7 +58,7 @@ def quantize_inputs(inputs, t_max):
     return (inputs * (t_max - 1)).round() / (t_max - 1)
 
 
-def get_accuracy(model, data_loader, device, preprocess=None, print_early_spikes=False, print_output_time=False, t_max=None):
+def get_accuracy(model, data_loader, device, preprocess=None, calculate_early_spikes=False, calculate_output_time=False, t_max=None):
     correct_pred = 0
     n = 0
     model = model.to(device)
@@ -74,27 +74,36 @@ def get_accuracy(model, data_loader, device, preprocess=None, print_early_spikes
                 with torch.no_grad():
                     X = preprocess(X)
                     # cut off inputs that are not covered by preprocessing
-                    X = torch.clamp(X, min=-2., max=2.)
+                    X = torch.clamp(X, min=-1.9, max=2.)
             if t_max is not None:
                 X = encode_inputs(X, t_max=t_max).to(device)
             y_true = y_true.to(device)
             with torch.no_grad():
                 y_prob = model(X)
             if t_max is not None:
-                if print_output_time:
+                if calculate_output_time:
                     earliest_output_spikes.append(t_max - torch.where(y_prob)[1].float().mean())
                 y_prob = decode_outputs(y_prob, t_max=t_max)
-                if print_early_spikes:
+                if calculate_early_spikes:
                     early_spikes.append([module.early_spikes for module in model.modules() if isinstance(module, sl.StatefulLayer)])
             predicted_labels = y_prob.argmax(1)
             n += y_true.size(0)
             correct_pred += (predicted_labels == y_true).sum()
             progress_bar.set_postfix({'Valid_acc': (correct_pred.float() / n).item() * 100})
             progress_bar.update()
-        if t_max is not None:
-            if print_output_time: print(f"Earliest spike at {(n_spike_layers-1)*t_max + torch.tensor(earliest_output_spikes).mean()} time steps on average.")
-            if print_early_spikes: print("Early spike % / layer: ", 100*torch.tensor(early_spikes).mean(0), f", {100*torch.tensor(early_spikes).mean()}% early spikes overall.")
-    return (correct_pred.float() / n).item() * 100
+    metrics = {}
+    if t_max is not None:
+        metrics[t_max] = {
+            'acc': (correct_pred.float() / n).item() * 100
+        }
+        if calculate_output_time:
+            metrics[t_max]['time steps'] = round((n_spike_layers-1)*t_max + torch.tensor(earliest_output_spikes).mean().item())
+        if calculate_early_spikes:
+            metrics[t_max]['early spike per layer'] = 100*torch.tensor(early_spikes).mean(0).cpu().numpy().round(3)
+            metrics[t_max]['early spikes'] = round(100*torch.tensor(early_spikes).mean().item(), 2)
+    else:
+        metrics['acc'] = (correct_pred.float() / n).item() * 100
+    return metrics
 
 
 def plot_output_comparison(model1, model2, sample_input, output_layers, every_n=1, every_c=1, savefig=None):
