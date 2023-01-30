@@ -9,6 +9,10 @@ import seaborn as sns
 from torch.nn.utils.fusion import fuse_conv_bn_eval
 
 
+n_operations = lambda n_neurons, t_max, n_synops: round((n_synops + 2*n_neurons*t_max))
+omega_read = lambda n_neurons, t_max, n_synops: round((4*n_neurons*t_max+n_synops))
+omega_write = lambda n_neurons, t_max, n_synops: round((n_synops + n_neurons*t_max))
+
 def encode_inputs(data, t_max):
     time_index = ((t_max - 1) * (2 - data)).round().long().flatten()
     input = torch.zeros(
