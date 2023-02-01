@@ -86,7 +86,7 @@ def get_accuracy(model, data_loader, device, preprocess=None, calculate_early_sp
                 y_prob = model(X)
             if t_max is not None:
                 if calculate_output_time:
-                    earliest_output_spikes.append(t_max - torch.where(y_prob)[1].float().mean())
+                    earliest_output_spikes.append(torch.where(y_prob)[1].float().mean() - (2*t_max-2))
                 y_prob = decode_outputs(y_prob, t_max=t_max)
                 if calculate_early_spikes:
                     early_spikes.append([module.early_spikes for module in model.modules() if isinstance(module, sl.StatefulLayer)])
