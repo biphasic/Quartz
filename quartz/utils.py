@@ -452,7 +452,7 @@ def normalize_outputs(
                 max_layer_output = max_outputs[-1]
                 module.weight.data /= max_layer_output
                 if hasattr(module, 'bias'):
-                    bias_scale = np.product(np.array(max_outputs))
+                    bias_scale = np.prod(np.array(max_outputs))
                     # print(f"weight scale: {1/max_layer_output}, bias_scale: {1/bias_scale}")
                     module.bias.data /= bias_scale
             handle.remove()

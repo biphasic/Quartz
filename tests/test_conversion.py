@@ -1,11 +1,9 @@
 import quartz
 import torch
 import torch.nn as nn
+torch.set_printoptions(sci_mode=False)
 
-
-def test_conversion():
-    torch.set_printoptions(sci_mode=False)
-
+def test_conversion_sequential():
     ann = nn.Sequential(
         nn.Conv2d(1, 6, kernel_size=5),
         nn.ReLU(),
